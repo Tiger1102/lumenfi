@@ -1,0 +1,33 @@
+{
+  "name": "lumenfi",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "serve:dist": "node scripts/serve-dist.mjs",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:arc": "hardhat run scripts/deploy-lending.ts --network arcTestnet",
+    "deploy:swap-pool": "hardhat run scripts/deploy-swap-pool.ts --network arcTestnet"
+  },
+  "dependencies": {
+    "@circle-fin/adapter-viem-v2": "latest",
+    "@circle-fin/app-kit": "latest",
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "viem": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "hardhat": "latest",
+    "typescript": "latest"
+  }
+}

@@ -1,0 +1,8 @@
+﻿name = "lumenfi-site"
+main = "workers/lumenfi-proxy.js"
+compatibility_date = "2026-06-22"
+
+routes = [
+  { pattern = "lumenfi.click/*", zone_name = "lumenfi.click" }
+]
+
