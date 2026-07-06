@@ -18,7 +18,7 @@ The product demonstrates how stablecoin applications can become more intuitive w
 
 https://lumenfi.click
 
-Latest deployment preview: https://301a92f5.lumenfi.pages.dev
+Latest deployment preview: https://0b9291dd.lumenfi.pages.dev
 
 ## Contract Addresses
 

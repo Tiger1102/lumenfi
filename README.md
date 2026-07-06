@@ -53,7 +53,7 @@ https://lumenfi.click
 Latest Cloudflare Pages deployment:
 
 ```text
-https://301a92f5.lumenfi.pages.dev
+https://0b9291dd.lumenfi.pages.dev
 ```
 
 Project docs:

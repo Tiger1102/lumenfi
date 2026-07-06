@@ -16,7 +16,7 @@ LumenFi is the project I am most proud of. I built a working DeFi dApp on Arc Te
 
 Live app: https://lumenfi.click
 
-Latest deployment preview: https://301a92f5.lumenfi.pages.dev
+Latest deployment preview: https://0b9291dd.lumenfi.pages.dev
 
 Arc Testnet LendingPool: https://testnet.arcscan.app/address/0x474552ce815a68443bdfcafd089cdb345791d204
 

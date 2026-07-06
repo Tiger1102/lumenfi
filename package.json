@@ -1,6 +1,28 @@
 {
   "name": "lumenfi",
   "version": "0.1.0",
+  "description": "Arc Testnet stablecoin DeFi workspace for swaps, liquidity, lending, portfolio balances, and USDC bridge preparation.",
+  "license": "MIT",
+  "homepage": "https://lumenfi.click",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tiger1102/lumenfi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tiger1102/lumenfi/issues"
+  },
+  "keywords": [
+    "arc",
+    "defi",
+    "stablecoin",
+    "usdc",
+    "eurc",
+    "lending",
+    "swap",
+    "vite",
+    "react",
+    "solidity"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
