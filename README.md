@@ -74,7 +74,7 @@ https://lumenfi.click
 Latest Cloudflare Pages deployment:
 
 ```text
-https://0b9291dd.lumenfi.pages.dev
+https://c6bc6deb.lumenfi.pages.dev
 ```
 
 Project docs:
