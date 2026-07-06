@@ -10,6 +10,27 @@ LumenFi is a premium stablecoin DeFi workspace for Arc Testnet with four product
 
 The current UI is built as an overview-first DeFi dashboard with professional dark-mode styling, public contract links, module-level receipts, and a roadmap toward an Arc Blueprints-powered AI Agent.
 
+## Why Arc
+
+LumenFi is designed around Arc's stablecoin-native execution model. Arc lets the app present gas, balances, liquidity, collateral, and settlement in familiar stablecoin terms instead of forcing users to reason across separate network tokens and fragmented onboarding steps.
+
+The project highlights four Arc-relevant ideas:
+
+- Stablecoin-first UX for swaps, LP positions, and credit markets.
+- USDC-denominated onboarding and transaction context.
+- Testnet contracts that make Arc balances actionable from one interface.
+- A path toward agent-assisted financial workflows built on top of Arc-native liquidity and account data.
+
+## Judge Quick Review
+
+- Live demo: `https://lumenfi.click`
+- Source code: `https://github.com/Tiger1102/lumenfi`
+- Deployed Arc Testnet contracts: listed below and in `docs/deployments.md`
+- Product docs: `docs/project-submission.md` and `docs/whitepaper.md`
+- Contract tests: `npm test`
+- Frontend build: `npm run build`
+- On-chain deployment check: `node scripts/check-contracts.mjs`
+
 ## Stack
 
 - React, Vite, TypeScript
@@ -62,6 +83,7 @@ Project docs:
 docs/project-submission.md
 docs/whitepaper.md
 docs/deployments.md
+docs/demo-script.md
 ```
 
 Security notes:
@@ -120,6 +142,19 @@ npx wrangler pages deploy dist --project-name lumenfi --commit-dirty=true
 Arc uses USDC as native gas with 18 decimals, while ERC-20 USDC uses 6 decimals at `0x3600000000000000000000000000000000000000`. The app and lending pool use ERC-20 balances and approvals.
 
 The lending pool is an MVP contract, not production lending infrastructure. Before mainnet use it needs audited accounting, oracle hardening, interest accrual, reserves, liquidation testing, and risk parameters per asset.
+
+## Test Coverage
+
+The repository includes Node test runner + Viem tests for the two core contract paths:
+
+- PermissionlessStablePool: add liquidity, quote, swap, and remove liquidity.
+- LendingPool: deposit, borrow, LTV enforcement, repay, and healthy withdrawal.
+
+Run:
+
+```bash
+npm test
+```
 
 ## License
 

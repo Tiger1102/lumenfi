@@ -34,6 +34,12 @@ React, Vite, TypeScript, viem, Solidity, Hardhat, Circle App Kit, Cloudflare Pag
 
 LumenFi uses Arc Testnet, Arc RPC, USDC gas model, ERC-20 USDC, EURC, deployed Solidity contracts, Circle App Kit integration points, and bridge/unified-balance workflow surfaces.
 
+## Why Arc
+
+Arc is a strong fit for LumenFi because the product is centered on stablecoin-native user journeys: balances, gas context, swaps, credit, and onboarding all make more sense when the chain is optimized for programmable money. LumenFi uses Arc Testnet to demonstrate how a user can move from wallet connection to market actions without leaving a stablecoin-first workspace.
+
+The app also creates a foundation for future Arc-native financial agents: read account state, summarize risk, prepare swaps or lending checks, and eventually request explicit user-confirmed execution.
+
 ## Current Status
 
 The testnet deployment is live. Wallet connect, Arc balance reads, USDC/EURC pool swaps, lending pool actions, documentation, and deployed contract references are available.
@@ -61,6 +67,13 @@ Soon: additional risk hardening, deeper historical LP fee insights, and an Arc B
 5. Deposit USDC or EURC into the lending pool.
 6. Review collateral, debt, available borrow, and health.
 7. Open the whitepaper or submission pack from the docs controls.
+
+## Validation
+
+- `npm run build` passes.
+- `npm run compile` passes.
+- `npm test` passes with contract tests for pool and lending flows.
+- `node scripts/check-contracts.mjs` confirms deployed bytecode, token metadata, pool reserves, a working swap quote, and listed lending assets.
 
 ## Disclaimer
 

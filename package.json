@@ -31,6 +31,8 @@
     "serve:dist": "node scripts/serve-dist.mjs",
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "verify:ready": "npm run build && npm run compile && npm test && npm run check:contracts",
     "deploy:arc": "hardhat run scripts/deploy-lending.ts --network arcTestnet",
     "deploy:swap-pool": "hardhat run scripts/deploy-swap-pool.ts --network arcTestnet"
   },
