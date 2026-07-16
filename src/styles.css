@@ -5544,3 +5544,709 @@ button,
     text-align: center !important;
   }
 }
+
+/* LumenFi premium workspace pass - July 2026 */
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.12), transparent 32%),
+    radial-gradient(circle at 86% 12%, rgba(34, 197, 94, 0.08), transparent 28%),
+    linear-gradient(180deg, #020617 0%, #07111f 48%, #020617 100%) !important;
+}
+
+.topbar,
+.dashboardShell,
+.sectionBlock,
+.siteFooter {
+  width: min(100% - 48px, 1320px) !important;
+}
+
+.appPage.dashboardShell {
+  max-width: 1260px !important;
+  margin-top: 30px !important;
+  padding: 24px !important;
+  border: 0 !important;
+  border-radius: 28px !important;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(2, 6, 23, 0.84)) !important;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.appPage .dashboardHeader {
+  display: flex !important;
+  align-items: end !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  margin-bottom: 18px !important;
+  padding: 0 2px 18px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1) !important;
+}
+
+.appPage .dashboardHeader h2 {
+  margin: 5px 0 0 !important;
+  color: #f8fafc !important;
+  font-size: clamp(27px, 3vw, 42px) !important;
+  font-weight: 560 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.05 !important;
+}
+
+.appPage .metricDeck {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0 0 12px !important;
+}
+
+.appPage .metricDeck div {
+  display: grid !important;
+  align-content: start !important;
+  gap: 5px !important;
+  min-height: 82px !important;
+  padding: 13px 14px !important;
+  border: 0 !important;
+  border-radius: 16px !important;
+  background: rgba(15, 23, 42, 0.66) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+
+.appPage .metricDeck span,
+.panel .eyebrow,
+.workspaceHeader .eyebrow {
+  color: rgba(148, 163, 184, 0.82) !important;
+  font-size: 10px !important;
+  font-weight: 760 !important;
+  letter-spacing: 0.13em !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+.appPage .metricDeck strong {
+  color: #f8fafc !important;
+  font-size: clamp(19px, 1.7vw, 25px) !important;
+  font-weight: 560 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.05 !important;
+}
+
+.appPage .metricDeck p {
+  margin: 0 !important;
+  color: rgba(203, 213, 225, 0.62) !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+
+.proMaxTrust {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(260px, 1.35fr) !important;
+  gap: 8px !important;
+  margin: 0 0 18px !important;
+  padding: 8px !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: rgba(2, 6, 23, 0.38) !important;
+}
+
+.proMaxTrust span,
+.proMaxTrust strong {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 38px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: rgba(15, 23, 42, 0.62) !important;
+  color: rgba(226, 232, 240, 0.74) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.proMaxTrust strong {
+  gap: 8px !important;
+  color: #bbf7d0 !important;
+}
+
+.proSections {
+  display: grid !important;
+  gap: 14px !important;
+}
+
+.workspaceHeader {
+  display: flex !important;
+  align-items: end !important;
+  justify-content: space-between !important;
+  min-height: 0 !important;
+  padding: 0 2px !important;
+}
+
+.workspaceHeader h3 {
+  margin: 4px 0 0 !important;
+  color: #f8fafc !important;
+  font-size: 18px !important;
+  font-weight: 560 !important;
+  letter-spacing: 0 !important;
+}
+
+.portfolioRow.singlePanel,
+.marketsRow {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.marketsRow {
+  display: grid !important;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr) !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+.appPage .panel {
+  width: 100% !important;
+  min-width: 0 !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.045), 0 18px 54px rgba(0,0,0,0.18) !important;
+}
+
+.appPage .panelHeader {
+  display: flex !important;
+  align-items: start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  min-height: 42px !important;
+  margin-bottom: 14px !important;
+}
+
+.appPage .panelHeader h2 {
+  margin: 3px 0 0 !important;
+  color: #f8fafc !important;
+  font-size: 20px !important;
+  font-weight: 560 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.12 !important;
+}
+
+.appPage .panelHeader svg {
+  color: #86efac !important;
+}
+
+.poolProPanel {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr) !important;
+  gap: 14px !important;
+  align-items: start !important;
+  padding: 18px !important;
+}
+
+.poolProPanel > .panelHeader,
+.poolProPanel > .panelNotice,
+.poolProPanel > .notice {
+  grid-column: 1 / -1 !important;
+}
+
+.poolModeTabs {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  margin: 0 !important;
+}
+
+.poolProStats {
+  grid-column: 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+  margin: 0 !important;
+}
+
+.poolProStats.compact {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  margin-top: -5px !important;
+}
+
+.poolProCard {
+  display: grid !important;
+  align-content: center !important;
+  justify-items: start !important;
+  min-height: 82px !important;
+  padding: 13px !important;
+  border: 0 !important;
+  border-radius: 15px !important;
+  background: rgba(2, 6, 23, 0.36) !important;
+  text-align: left !important;
+}
+
+.poolProCard.primary {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.12), rgba(2, 6, 23, 0.36)) !important;
+}
+
+.poolProCard span,
+.routeMeta span,
+.lendingCleanRates span,
+.lendingCleanPositions span,
+.minimumReceived span,
+.swapPreview span,
+.poolRateBox span,
+.poolAssetInput > span {
+  color: rgba(148, 163, 184, 0.82) !important;
+  font-size: 10px !important;
+  font-weight: 760 !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+.poolProCard strong {
+  display: block !important;
+  margin-top: 7px !important;
+  color: #f8fafc !important;
+  font-size: clamp(16px, 1.6vw, 21px) !important;
+  font-weight: 560 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.08 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.poolProCard em {
+  margin-top: 5px !important;
+  color: #86efac !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+}
+
+.poolProControls {
+  grid-column: 2 !important;
+  grid-row: 3 / span 2 !important;
+  display: grid !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.poolInputGrid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+}
+
+.poolAssetInput,
+.poolRateBox,
+.removePreview,
+.field,
+.lendingCleanRates div,
+.lendingCleanPositions div,
+.routeMeta div,
+.swapPreview,
+.slippagePanel,
+.notice,
+.panelNotice {
+  border: 0 !important;
+  border-radius: 15px !important;
+  background: rgba(2, 6, 23, 0.36) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+}
+
+.poolAssetInput {
+  padding: 13px !important;
+}
+
+.poolAssetInput div {
+  grid-template-columns: minmax(0, 1fr) 72px !important;
+  gap: 8px !important;
+}
+
+.poolAssetInput input,
+.field input,
+.slippageCustom input,
+.lendingCleanInputRow input {
+  color: #f8fafc !important;
+  font-size: 20px !important;
+  font-weight: 520 !important;
+  letter-spacing: 0 !important;
+}
+
+.poolAssetInput button,
+.slippageOptions button,
+.slippageCustom,
+.lendingCleanTokenTabs button,
+.lendingCleanActions button,
+.lendingCleanInputRow button,
+.segmented button,
+.removeQuick button {
+  min-width: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(30, 41, 59, 0.78) !important;
+  color: #cbd5e1 !important;
+  font-size: 12px !important;
+  font-weight: 720 !important;
+  white-space: nowrap !important;
+}
+
+.poolModeTabs {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  padding: 5px !important;
+  border-radius: 999px !important;
+  background: rgba(2, 6, 23, 0.38) !important;
+}
+
+.poolModeTabs button {
+  min-height: 40px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  font-weight: 720 !important;
+}
+
+.poolModeTabs button.active,
+.slippageOptions button.active,
+.lendingCleanTokenTabs button.active,
+.lendingCleanActions button.active,
+.segmented button.active,
+.removeQuick button.active {
+  background: rgba(74, 222, 128, 0.16) !important;
+  color: #bbf7d0 !important;
+  box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.18) !important;
+}
+
+.poolRateBox {
+  padding: 12px 14px !important;
+}
+
+.poolProControls .primaryButton {
+  justify-self: stretch !important;
+  width: 100% !important;
+}
+
+.poolProPanel > .hint {
+  grid-column: 1 / -1 !important;
+  margin: -2px 0 0 !important;
+  color: rgba(148, 163, 184, 0.7) !important;
+}
+
+.swapPanel,
+.lendingCleanPanel {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 642px !important;
+  padding: 18px !important;
+}
+
+.swapPanelBody,
+.lendingCleanBody {
+  display: grid !important;
+  gap: 10px !important;
+  flex: 1 1 auto !important;
+}
+
+.segmented,
+.lendingCleanTokenTabs,
+.lendingCleanActions,
+.slippageOptions,
+.removeQuick {
+  gap: 6px !important;
+  padding: 5px !important;
+  border-radius: 999px !important;
+  background: rgba(2, 6, 23, 0.34) !important;
+}
+
+.segmented {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.segmented button {
+  min-height: 38px !important;
+  padding: 0 10px !important;
+  gap: 7px !important;
+}
+
+.field {
+  display: grid !important;
+  gap: 9px !important;
+  margin: 0 !important;
+  padding: 13px !important;
+}
+
+.field > span,
+.swapAmountHeader span,
+.lendingCleanGroup > span,
+.lendingCleanAmountHeader span {
+  color: #86efac !important;
+  font-size: 11px !important;
+  font-weight: 760 !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+.swapAmountHeader b,
+.lendingCleanAmountHeader b,
+.poolAssetInput small {
+  color: rgba(203, 213, 225, 0.62) !important;
+  font-size: 11px !important;
+  font-weight: 560 !important;
+}
+
+.field input {
+  min-height: 44px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.swapReverseButton {
+  justify-self: center !important;
+  width: 40px !important;
+  height: 40px !important;
+  margin: -2px 0 !important;
+  border: 5px solid rgba(15, 23, 42, 0.98) !important;
+  background: rgba(34, 197, 94, 0.16) !important;
+  color: #bbf7d0 !important;
+}
+
+.swapPreview {
+  min-height: 78px !important;
+  padding: 14px !important;
+}
+
+.swapPreview strong,
+.minimumReceived strong {
+  color: #ffffff !important;
+  font-size: 20px !important;
+  font-weight: 680 !important;
+  letter-spacing: 0 !important;
+}
+
+.slippagePanel {
+  padding: 13px !important;
+}
+
+.slippageHeader,
+.minimumReceived,
+.poolRateBox,
+.lendingCleanAmountHeader {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.slippageOptions {
+  display: grid !important;
+  grid-template-columns: 68px 68px minmax(0, 1fr) !important;
+  margin: 10px 0 !important;
+}
+
+.slippageCustom {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  min-height: 34px !important;
+  padding: 0 10px !important;
+}
+
+.routeMeta {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.routeMeta div {
+  min-height: 58px !important;
+  padding: 12px !important;
+}
+
+.routeMeta strong,
+.lendingCleanRates strong,
+.lendingCleanPositions strong,
+.poolRateBox strong {
+  display: block !important;
+  color: #f8fafc !important;
+  font-size: 13px !important;
+  font-weight: 620 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.panelActionFooter {
+  display: grid !important;
+  margin-top: auto !important;
+  padding-top: 12px !important;
+}
+
+.primaryButton {
+  min-height: 48px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #86efac, #4ade80) !important;
+  color: #052e16 !important;
+  font-size: 13px !important;
+  font-weight: 850 !important;
+  box-shadow: 0 16px 36px rgba(34, 197, 94, 0.18) !important;
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 20px 44px rgba(34, 197, 94, 0.24) !important;
+}
+
+.lendingCleanOverview {
+  display: grid !important;
+  grid-template-columns: 0.85fr 0.85fr 1.45fr !important;
+  gap: 9px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.lendingCleanStat,
+.lendingCleanHealth {
+  min-height: 86px !important;
+  padding: 13px !important;
+  border: 0 !important;
+  border-radius: 15px !important;
+  background: rgba(2, 6, 23, 0.36) !important;
+}
+
+.lendingCleanStat span,
+.lendingCleanHealth span {
+  color: rgba(148, 163, 184, 0.82) !important;
+  font-size: 10px !important;
+  font-weight: 760 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.lendingCleanStat strong,
+.lendingCleanHealth strong {
+  color: #f8fafc !important;
+  font-size: 20px !important;
+  font-weight: 560 !important;
+}
+
+.lendingCleanHealthBar {
+  height: 7px !important;
+  border-radius: 999px !important;
+  background: rgba(148, 163, 184, 0.18) !important;
+}
+
+.lendingCleanHealthBar i {
+  border-radius: inherit !important;
+  background: linear-gradient(90deg, #86efac, #22c55e) !important;
+}
+
+.lendingCleanControls,
+.lendingCleanAssetBlock,
+.lendingCleanAmountBlock {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.lendingCleanRates,
+.lendingCleanPositions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.lendingCleanRates div,
+.lendingCleanPositions div {
+  min-height: 62px !important;
+  padding: 11px !important;
+}
+
+.lendingCleanInputRow {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 74px !important;
+  gap: 8px !important;
+}
+
+.lendingCleanInputRow input,
+.lendingCleanInputRow button {
+  min-height: 42px !important;
+}
+
+.tokenIcon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 999px !important;
+  color: #020617 !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
+button,
+a,
+input {
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease !important;
+}
+
+@media (max-width: 1120px) {
+  .poolProPanel,
+  .marketsRow,
+  .proMaxTrust {
+    grid-template-columns: 1fr !important;
+  }
+
+  .poolModeTabs,
+  .poolProStats,
+  .poolProStats.compact,
+  .poolProControls,
+  .poolProPanel > .hint {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .swapPanel,
+  .lendingCleanPanel {
+    min-height: auto !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar,
+  .dashboardShell,
+  .sectionBlock,
+  .siteFooter {
+    width: min(100% - 28px, 1320px) !important;
+  }
+
+  .appPage.dashboardShell {
+    padding: 16px !important;
+    border-radius: 22px !important;
+  }
+
+  .appPage .metricDeck,
+  .poolProStats,
+  .poolProStats.compact,
+  .lendingCleanOverview,
+  .lendingCleanRates,
+  .lendingCleanPositions,
+  .routeMeta {
+    grid-template-columns: 1fr !important;
+  }
+
+  .proMaxTrust span,
+  .proMaxTrust strong {
+    white-space: normal !important;
+  }
+}

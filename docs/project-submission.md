@@ -18,8 +18,6 @@ The product demonstrates how stablecoin applications can become more intuitive w
 
 https://lumenfi.click
 
-Latest deployment preview: https://c6bc6deb.lumenfi.pages.dev
-
 ## Contract Addresses
 
 LendingPool: 0x474552ce815a68443bdfcafd089cdb345791d204

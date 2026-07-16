@@ -71,12 +71,6 @@ Open `http://localhost:5173`.
 https://lumenfi.click
 ```
 
-Latest Cloudflare Pages deployment:
-
-```text
-https://c6bc6deb.lumenfi.pages.dev
-```
-
 Project docs:
 
 ```text

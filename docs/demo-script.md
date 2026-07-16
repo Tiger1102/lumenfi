@@ -26,8 +26,6 @@ Live app: https://lumenfi.click
 
 GitHub: https://github.com/Tiger1102/lumenfi
 
-Latest deployment preview: https://c6bc6deb.lumenfi.pages.dev
-
 LendingPool: https://testnet.arcscan.app/address/0x474552ce815a68443bdfcafd089cdb345791d204
 
 PermissionlessStablePool: https://testnet.arcscan.app/address/0xfd34e43021f20f585db8f078471c7107d8d1da30
