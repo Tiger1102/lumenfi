@@ -1,6 +1,6 @@
 import { RefreshCcw } from "lucide-react";
 import type { Address } from "viem";
-import { arcPublicClient, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, type TokenSymbol } from "../lib/arc";
+import { arcPublicClient, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, type TokenSymbol } from "../lib/arc";
 
 type BalancesProps = {
   address?: Address;
@@ -16,20 +16,23 @@ export function Balances({ address, balances, setBalances, setStatus }: Balances
     }
 
     setStatus("Refreshing Arc balances...");
-    const entries = await Promise.all(
-      BALANCE_TOKEN_SYMBOLS.map(async (symbol) => {
-        const token = ARC_TOKENS[symbol];
-        const value = token.address
-          ? await arcPublicClient.readContract({
-              address: getTokenAddress(symbol),
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [address]
-            })
-          : 0n;
-        return [token.symbol, value] as const;
-      })
-    );
+    const entries: [TokenSymbol, bigint][] = [];
+    for (const symbol of BALANCE_TOKEN_SYMBOLS) {
+      const token = ARC_TOKENS[symbol];
+      const value = token.address
+        ? await readWithRetry(
+            () =>
+              arcPublicClient.readContract({
+                address: getTokenAddress(symbol),
+                abi: erc20Abi,
+                functionName: "balanceOf",
+                args: [address]
+              }),
+            `${symbol} balance`
+          )
+        : 0n;
+      entries.push([token.symbol, value]);
+    }
 
     setBalances(Object.fromEntries(entries) as Partial<Record<TokenSymbol, bigint>>);
     setStatus("Balances updated.");

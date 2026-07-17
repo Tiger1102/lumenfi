@@ -1,8 +1,8 @@
 import { ArrowDownUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { isCircleAppKitEnabled, requestSwap } from "../lib/circle";
-import { ARC_TOKENS, formatTokenAmount, type EIP1193Provider, type TokenSymbol } from "../lib/arc";
+import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type EIP1193Provider, type TokenSymbol } from "../lib/arc";
 import { getPoolSwapPreview, poolSwap, supportsPoolSwap, swapPoolAddress } from "../lib/swapPool";
 import { PanelNotice } from "./PanelNotice";
 import { TokenSelect } from "./TokenSelect";
@@ -12,6 +12,8 @@ type SwapPanelProps = {
   provider?: EIP1193Provider;
   walletClient?: WalletClient;
   balances?: Partial<Record<TokenSymbol, bigint>>;
+  balancesLoading?: boolean;
+  onConnect: () => Promise<void>;
   setStatus: (message: string, state?: "success" | "error" | "loading", txHash?: string) => void;
 };
 
@@ -35,24 +37,45 @@ function readableSwapError(error: unknown) {
   return message || "Pool swap failed.";
 }
 
-export function SwapPanel({ address, provider, walletClient, balances = {}, setStatus }: SwapPanelProps) {
+export function SwapPanel({ address, provider, walletClient, balances = {}, balancesLoading = false, onConnect, setStatus }: SwapPanelProps) {
   const [from, setFrom] = useState<TokenSymbol>("USDC");
   const [to, setTo] = useState<TokenSymbol>("EURC");
   const [amount, setAmount] = useState("10");
   const [preview, setPreview] = useState("--");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
   const [slippage, setSlippage] = useState("0.5");
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
 
   useEffect(() => {
     let cancelled = false;
+    setPreviewError("");
+
+    if (!supportsPoolSwap(from, to) || !swapPoolAddress) {
+      setPreview("--");
+      setPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setPreviewLoading(true);
     getPoolSwapPreview(address, from, to, amount)
       .then((nextPreview) => {
         if (!cancelled) {
           setPreview(nextPreview ? nextPreview.outputText : "--");
         }
       })
-      .catch(() => {
-        if (!cancelled) setPreview("--");
+      .catch((error) => {
+        if (!cancelled) {
+          setPreview("--");
+          setPreviewError(error instanceof Error ? error.message : "Swap quote failed.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPreviewLoading(false);
+        }
       });
 
     return () => {
@@ -64,13 +87,47 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, setS
   const previewValue = Number(preview);
   const minimumReceived = Number.isFinite(previewValue) && preview !== "--" ? (previewValue * (1 - slippageValue / 100)).toFixed(4) : "--";
   const fromBalance = formatTokenAmount(balances[from] ?? 0n, ARC_TOKENS[from]);
+  const parsedAmount = useMemo(() => {
+    try {
+      return parseTokenAmount(amount, ARC_TOKENS[from]);
+    } catch {
+      return 0n;
+    }
+  }, [amount, from]);
+  const hasInsufficientBalance = Boolean(address && parsedAmount > (balances[from] ?? 0n));
+  const isLoadingNetworkData = balancesLoading || previewLoading;
+  const isValidSwap = Boolean(address && walletClient && provider && from !== to && parsedAmount > 0n && !hasInsufficientBalance && !isLoadingNetworkData);
+  const ctaLabel = !address
+    ? "Connect Wallet"
+    : isLoadingNetworkData
+      ? "Loading Network Data..."
+      : from === to
+        ? "Select Different Tokens"
+        : parsedAmount === 0n
+          ? "Enter Amount"
+          : hasInsufficientBalance
+            ? `Insufficient ${from} Balance`
+            : "Swap";
 
   function reverseTokens() {
     setFrom(to);
     setTo(from);
   }
 
+  function setMaxAmount() {
+    setAmount(formatTokenAmount(balances[from] ?? 0n, ARC_TOKENS[from]));
+  }
+
   async function execute() {
+    if (!address) {
+      await onConnect();
+      return;
+    }
+
+    if (!isValidSwap) {
+      return;
+    }
+
     if (!provider || !walletClient || !address) {
       setNotice({ status: "error", message: "Connect wallet before swapping." });
       setStatus("Connect wallet before swapping.", "error");
@@ -129,32 +186,34 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, setS
       <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
 
       <div className="swapPanelBody">
-        <label className="field">
-          <span>FROM</span>
-          <TokenSelect value={from} onChange={setFrom} tokens={PUBLIC_SWAP_TOKENS} />
-        </label>
-
-        <label className="field">
-          <div className="swapAmountHeader">
-            <span>AMOUNT</span>
-            <b>Wallet {fromBalance} {from}</b>
+        <div className="tokenAmountBox">
+          <div className="tokenAmountTop">
+            <span>Pay</span>
+            <b>{balancesLoading ? <i className="skeletonText small" /> : `Wallet ${fromBalance} ${from}`}</b>
           </div>
-          <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
-        </label>
+          <div className="tokenAmountMain">
+            <TokenSelect value={from} onChange={setFrom} tokens={PUBLIC_SWAP_TOKENS} />
+            <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" aria-label="Swap amount" />
+            <button type="button" onClick={setMaxAmount}>MAX</button>
+          </div>
+        </div>
 
         <button className="swapReverseButton" type="button" onClick={reverseTokens} aria-label="Reverse swap direction">
           <ArrowDownUp size={18} />
         </button>
 
-        <label className="field">
-          <span>TO</span>
-          <TokenSelect value={to} onChange={setTo} tokens={PUBLIC_SWAP_TOKENS} />
-        </label>
-
-        <div className="swapPreview">
-          <span>YOU RECEIVE</span>
-          <strong>{preview} {to}</strong>
+        <div className="tokenAmountBox receive">
+          <div className="tokenAmountTop">
+            <span>Receive</span>
+            <b>{supportsPoolSwap(from, to) ? "Pool quote" : "Circle App Kit"}</b>
+          </div>
+          <div className="tokenAmountMain">
+            <TokenSelect value={to} onChange={setTo} tokens={PUBLIC_SWAP_TOKENS} />
+            <strong>{previewLoading ? <i className="skeletonText" /> : `${preview} ${to}`}</strong>
+            <button type="button" disabled>OUT</button>
+          </div>
         </div>
+        {previewError && <div className="miniError">{previewError}</div>}
 
         <div className="slippagePanel" aria-label="Swap quote controls">
           <div className="slippageHeader">
@@ -174,7 +233,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, setS
           </div>
           <div className="minimumReceived">
             <span>MINIMUM RECEIVED</span>
-            <strong>{minimumReceived} {to}</strong>
+            <strong>{previewLoading ? <i className="skeletonText small" /> : `${minimumReceived} ${to}`}</strong>
           </div>
           {slippageValue > 1 && <p className="slippageWarning">Higher slippage may accept a worse execution price.</p>}
         </div>
@@ -189,12 +248,11 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, setS
             <strong>On-chain</strong>
           </div>
         </div>
-        <p className="hint">USDC/EURC routes through the LumenFi pool. cirBTC uses Circle App Kit routing when available.</p>
       </div>
 
       <div className="panelActionFooter">
-        <button className="primaryButton" type="button" onClick={execute}>
-          Swap on Arc
+        <button className="primaryButton" type="button" onClick={execute} disabled={address ? !isValidSwap : false}>
+          {ctaLabel}
         </button>
       </div>
     </section>

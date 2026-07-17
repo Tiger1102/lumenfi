@@ -5545,6 +5545,252 @@ button,
   }
 }
 
+/* LumenFi DeFi workspace refactor */
+.appPage.dashboardShell {
+  max-width: 1120px !important;
+  padding: 18px !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(180deg, rgba(8, 13, 22, 0.96), rgba(7, 11, 18, 0.96)) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32) !important;
+}
+
+.appPage .dashboardHeader {
+  margin-bottom: 12px !important;
+}
+
+.appPage .metricDeck {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.appPage .metricDeck div,
+.appPage .panel,
+.tokenAmountBox,
+.poolProCard,
+.poolAssetInput,
+.poolRateBox,
+.removePreview,
+.lendingCleanStat,
+.lendingCleanHealth,
+.lendingCleanRates div,
+.lendingCleanPositions div,
+.routeMeta div,
+.slippagePanel {
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  border-radius: 8px !important;
+  background: rgba(15, 23, 42, 0.74) !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.proMaxTrust {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.moduleTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 5px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.62);
+}
+
+.moduleTabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.moduleTabs button.active {
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.22), rgba(56, 189, 248, 0.16));
+  color: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.16);
+}
+
+.marketModule {
+  display: grid;
+}
+
+.marketModule > .panel {
+  min-height: 620px !important;
+}
+
+.tokenAmountBox {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+}
+
+.tokenAmountTop,
+.tokenAmountMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tokenAmountTop {
+  justify-content: space-between;
+}
+
+.tokenAmountTop span,
+.tokenAmountTop b {
+  color: rgba(148, 163, 184, 0.84);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tokenAmountTop b {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tokenAmountMain input,
+.tokenAmountMain strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #f8fafc !important;
+  font-size: 24px !important;
+  font-weight: 680 !important;
+  text-align: right;
+}
+
+.tokenAmountMain strong {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 22px !important;
+}
+
+.tokenAmountMain > button {
+  flex: 0 0 56px;
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(20, 184, 166, 0.16);
+  color: #99f6e4;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.tokenSelectCompact {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  min-width: 118px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.tokenSelectCompact select {
+  min-height: 0 !important;
+  height: 34px !important;
+  padding: 0 22px 0 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #f8fafc !important;
+  font-size: 13px !important;
+  font-weight: 850 !important;
+}
+
+.miniError {
+  margin-top: -2px;
+  padding: 9px 11px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.18);
+  color: #fecaca;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.skeletonText {
+  display: inline-block;
+  width: 118px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12), rgba(226, 232, 240, 0.28), rgba(148, 163, 184, 0.12));
+  background-size: 220% 100%;
+  animation: lumenSkeleton 1.05s linear infinite;
+  vertical-align: middle;
+}
+
+.skeletonText.small { width: 92px; height: 16px; }
+.skeletonText.tiny { width: 70px; height: 13px; }
+
+@keyframes lumenSkeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.primaryButton:disabled {
+  background: rgba(51, 65, 85, 0.84) !important;
+  color: rgba(203, 213, 225, 0.72) !important;
+  box-shadow: none !important;
+}
+
+.swapPanelBody .field,
+.swapPreview {
+  display: none !important;
+}
+
+.lendingCleanHealthBar.low i {
+  background: linear-gradient(90deg, #f87171, #ef4444) !important;
+}
+
+.lendingCleanHealthBar.medium i {
+  background: linear-gradient(90deg, #facc15, #f59e0b) !important;
+}
+
+.lendingCleanHealthBar.strong i {
+  background: linear-gradient(90deg, #5eead4, #22c55e) !important;
+}
+
+@media (max-width: 760px) {
+  .appPage .metricDeck,
+  .moduleTabs,
+  .proMaxTrust {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tokenAmountMain {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .tokenSelectCompact {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .tokenAmountMain input,
+  .tokenAmountMain strong {
+    text-align: left;
+    justify-content: flex-start;
+  }
+}
+
 /* LumenFi premium workspace pass - July 2026 */
 body {
   background:

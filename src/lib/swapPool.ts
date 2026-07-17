@@ -1,5 +1,5 @@
 import { formatUnits, parseUnits, type Address, type WalletClient } from "viem";
-import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, type TokenSymbol } from "./arc";
+import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, readWithRetry, type TokenSymbol } from "./arc";
 
 export const swapPoolAddress = (import.meta.env.VITE_SWAP_POOL_ADDRESS || "") as Address;
 
@@ -82,12 +82,16 @@ export async function poolQuote(from: TokenSymbol, to: TokenSymbol, amountText: 
   }
 
   const amountIn = parseTokenAmount(amountText, ARC_TOKENS[from]);
-  return arcPublicClient.readContract({
-    address: swapPoolAddress,
-    abi: swapPoolAbi,
-    functionName: "quote",
-    args: [getTokenAddress(from), amountIn]
-  });
+  return readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: swapPoolAddress,
+        abi: swapPoolAbi,
+        functionName: "quote",
+        args: [getTokenAddress(from), amountIn]
+      }),
+    "Pool quote"
+  );
 }
 
 export async function getPoolSwapPreview(owner: Address | undefined, from: TokenSymbol, to: TokenSymbol, amountText: string) {
@@ -101,17 +105,19 @@ export async function getPoolSwapPreview(owner: Address | undefined, from: Token
     return null;
   }
 
-  const [quote, balance] = await Promise.all([
-    poolQuote(from, to, amountText),
-    owner
-      ? arcPublicClient.readContract({
-          address: getTokenAddress(from),
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [owner]
-        })
-      : Promise.resolve(0n)
-  ]);
+  const quote = await poolQuote(from, to, amountText);
+  const balance = owner
+    ? await readWithRetry(
+        () =>
+          arcPublicClient.readContract({
+            address: getTokenAddress(from),
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [owner]
+          }),
+        `${from} balance`
+      )
+    : 0n;
 
   return {
     amountIn,
@@ -126,20 +132,26 @@ export async function poolReserves() {
     return null;
   }
 
-  const [usdcReserve, eurcReserve] = await Promise.all([
-    arcPublicClient.readContract({
-      address: getTokenAddress("USDC"),
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [swapPoolAddress]
-    }),
-    arcPublicClient.readContract({
-      address: getTokenAddress("EURC"),
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [swapPoolAddress]
-    })
-  ]);
+  const usdcReserve = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: getTokenAddress("USDC"),
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [swapPoolAddress]
+      }),
+    "USDC reserve"
+  );
+  const eurcReserve = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: getTokenAddress("EURC"),
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [swapPoolAddress]
+      }),
+    "EURC reserve"
+  );
 
   return { usdcReserve, eurcReserve };
 }
@@ -149,22 +161,28 @@ export async function poolPosition(account?: Address) {
     return null;
   }
 
-  const [reserves, totalSupply, lpBalance] = await Promise.all([
-    poolReserves(),
-    arcPublicClient.readContract({
-      address: swapPoolAddress,
-      abi: swapPoolAbi,
-      functionName: "totalSupply"
-    }),
-    account
-      ? arcPublicClient.readContract({
-          address: swapPoolAddress,
-          abi: swapPoolAbi,
-          functionName: "balanceOf",
-          args: [account]
-        })
-      : Promise.resolve(0n)
-  ]);
+  const reserves = await poolReserves();
+  const totalSupply = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: swapPoolAddress,
+        abi: swapPoolAbi,
+        functionName: "totalSupply"
+      }),
+    "LP total supply"
+  );
+  const lpBalance = account
+    ? await readWithRetry(
+        () =>
+          arcPublicClient.readContract({
+            address: swapPoolAddress,
+            abi: swapPoolAbi,
+            functionName: "balanceOf",
+            args: [account]
+          }),
+        "LP balance"
+      )
+    : 0n;
 
   return {
     usdcReserve: reserves?.usdcReserve ?? 0n,
@@ -175,14 +193,14 @@ export async function poolPosition(account?: Address) {
 }
 
 export function formatLpAmount(value: bigint) {
-  const formatted = formatUnits(value, 6);
+  const formatted = formatUnits(value, 18);
   const [whole, fraction = ""] = formatted.split(".");
   const trimmed = fraction.slice(0, 4).replace(/0+$/, "");
   return trimmed ? `${whole}.${trimmed}` : whole;
 }
 
 export function parseLpAmount(value: string) {
-  return parseUnits(value || "0", 6);
+  return parseUnits(value || "0", 18);
 }
 
 export function quoteRemoveLiquidity(position: {
@@ -257,12 +275,16 @@ export async function managePoolLiquidity(
 
     for (const item of approvals) {
       const tokenAddress = getTokenAddress(item.symbol);
-      const allowance = await arcPublicClient.readContract({
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: "allowance",
-        args: [account, swapPoolAddress]
-      });
+      const allowance = await readWithRetry(
+        () =>
+          arcPublicClient.readContract({
+            address: tokenAddress,
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [account, swapPoolAddress]
+          }),
+        `${item.symbol} allowance`
+      );
 
       if (allowance < item.amount) {
         const approveHash = await walletClient.writeContract({
@@ -313,12 +335,16 @@ export async function poolSwap(walletClient: WalletClient, owner: Address, from:
     throw new Error(`Insufficient ${from} balance for this swap.`);
   }
 
-  const allowance = await arcPublicClient.readContract({
-    address: tokenAddress,
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: [owner, swapPoolAddress]
-  });
+  const allowance = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [owner, swapPoolAddress]
+      }),
+    `${from} allowance`
+  );
 
   if (allowance < amountIn) {
     const approveHash = await walletClient.writeContract({

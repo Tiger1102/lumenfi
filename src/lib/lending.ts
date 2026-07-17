@@ -1,5 +1,5 @@
 import type { Address, WalletClient } from "viem";
-import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, getTokenAddress, parseTokenAmount, type TokenSymbol } from "./arc";
+import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, getTokenAddress, parseTokenAmount, readWithRetry, type TokenSymbol } from "./arc";
 
 export const lendingPoolAddress = (import.meta.env.VITE_LENDING_POOL_ADDRESS || "") as Address;
 
@@ -108,12 +108,16 @@ export async function approveIfNeeded(walletClient: WalletClient, owner: Address
   const token = ARC_TOKENS[tokenSymbol];
   const tokenAddress = getTokenAddress(tokenSymbol);
   const amount = parseTokenAmount(amountText, token);
-  const allowance = await arcPublicClient.readContract({
-    address: tokenAddress,
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: [owner, lendingPoolAddress]
-  });
+  const allowance = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [owner, lendingPoolAddress]
+      }),
+    `${tokenSymbol} lending allowance`
+  );
 
   if (allowance >= amount) {
     return undefined;
@@ -143,7 +147,8 @@ export async function lendingAction(
   const token = ARC_TOKENS[tokenSymbol];
   const tokenAddress = getTokenAddress(tokenSymbol);
   const amount = parseTokenAmount(amountText, token);
-  const [position, accountData] = await Promise.all([getLendingTokenPosition(owner, tokenSymbol), getAccountData(owner)]);
+  const position = await getLendingTokenPosition(owner, tokenSymbol);
+  const accountData = await getAccountData(owner);
 
   if (amount === 0n) {
     throw new Error("Enter an amount greater than zero.");
@@ -201,12 +206,16 @@ export async function getAccountData(address: Address) {
     return null;
   }
 
-  return arcPublicClient.readContract({
-    address: lendingPoolAddress,
-    abi: lendingPoolAbi,
-    functionName: "getAccountData",
-    args: [address]
-  });
+  return readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: lendingPoolAddress,
+        abi: lendingPoolAbi,
+        functionName: "getAccountData",
+        args: [address]
+      }),
+    "Lending account data"
+  );
 }
 
 export async function getLendingTokenPosition(address: Address, tokenSymbol: TokenSymbol): Promise<LendingTokenPosition> {
@@ -221,38 +230,56 @@ export async function getLendingTokenPosition(address: Address, tokenSymbol: Tok
   }
 
   const tokenAddress = getTokenAddress(tokenSymbol);
-  const [collateral, debt, totalSupplied, totalBorrowed, walletBalance] = await Promise.all([
-    arcPublicClient.readContract({
-      address: lendingPoolAddress,
-      abi: lendingPoolAbi,
-      functionName: "collateralOf",
-      args: [address, tokenAddress]
-    }),
-    arcPublicClient.readContract({
-      address: lendingPoolAddress,
-      abi: lendingPoolAbi,
-      functionName: "debtOf",
-      args: [address, tokenAddress]
-    }),
-    arcPublicClient.readContract({
-      address: lendingPoolAddress,
-      abi: lendingPoolAbi,
-      functionName: "totalSupplied",
-      args: [tokenAddress]
-    }),
-    arcPublicClient.readContract({
-      address: lendingPoolAddress,
-      abi: lendingPoolAbi,
-      functionName: "totalBorrowed",
-      args: [tokenAddress]
-    }),
-    arcPublicClient.readContract({
-      address: tokenAddress,
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [address]
-    })
-  ]);
+  const collateral = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: lendingPoolAddress,
+        abi: lendingPoolAbi,
+        functionName: "collateralOf",
+        args: [address, tokenAddress]
+      }),
+    `${tokenSymbol} collateral`
+  );
+  const debt = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: lendingPoolAddress,
+        abi: lendingPoolAbi,
+        functionName: "debtOf",
+        args: [address, tokenAddress]
+      }),
+    `${tokenSymbol} debt`
+  );
+  const totalSupplied = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: lendingPoolAddress,
+        abi: lendingPoolAbi,
+        functionName: "totalSupplied",
+        args: [tokenAddress]
+      }),
+    `${tokenSymbol} total supplied`
+  );
+  const totalBorrowed = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: lendingPoolAddress,
+        abi: lendingPoolAbi,
+        functionName: "totalBorrowed",
+        args: [tokenAddress]
+      }),
+    `${tokenSymbol} total borrowed`
+  );
+  const walletBalance = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address]
+      }),
+    `${tokenSymbol} wallet balance`
+  );
 
   return { collateral, debt, totalSupplied, totalBorrowed, walletBalance };
 }

@@ -7,22 +7,20 @@ type TokenSelectProps = {
 };
 
 export function TokenSelect({ value, onChange, tokens = ["USDC", "EURC", "cirBTC"] }: TokenSelectProps) {
+  const selected = ARC_TOKENS[value];
+
   return (
-    <div className="segmented">
-      {tokens.map((symbol) => (
-        <button
-          key={symbol}
-          type="button"
-          className={symbol === value ? "active" : ""}
-          onClick={() => onChange(symbol)}
-          aria-pressed={symbol === value}
-        >
-          <span className="tokenIcon" style={{ background: ARC_TOKENS[symbol].accent }}>
-            {symbol === "cirBTC" ? "B" : symbol.slice(0, 1)}
-          </span>
-          {symbol}
-        </button>
-      ))}
+    <div className="tokenSelectCompact">
+      <span className="tokenIcon" style={{ background: selected.accent }}>
+        {value === "cirBTC" ? "B" : value.slice(0, 1)}
+      </span>
+      <select value={value} onChange={(event) => onChange(event.target.value as TokenSymbol)} aria-label="Select token">
+        {tokens.map((symbol) => (
+          <option key={symbol} value={symbol}>
+            {symbol}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

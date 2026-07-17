@@ -58,6 +58,7 @@ export const ARC_TOKENS: Record<TokenSymbol, ArcToken> = {
   cirBTC: {
     symbol: "cirBTC",
     name: "Circle Bitcoin",
+    address: import.meta.env.VITE_CIRBTC_ADDRESS || undefined,
     decimals: 8,
     accent: "#f7931a"
   }
@@ -104,6 +105,35 @@ export const erc20Abi = [
     outputs: [{ name: "", type: "bool" }]
   }
 ] as const;
+
+function wait(ms: number) {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+}
+
+export function isArcRateLimitError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /request limit|rate limit|too many requests|429/i.test(message);
+}
+
+export async function readWithRetry<T>(read: () => Promise<T>, label = "RPC read"): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return await read();
+    } catch (error) {
+      lastError = error;
+
+      if (!isArcRateLimitError(error) || attempt === 3) {
+        break;
+      }
+
+      await wait(350 * (attempt + 1));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`${label} failed.`);
+}
 
 export function formatTokenAmount(value: bigint, token: ArcToken) {
   const formatted = formatUnits(value, token.decimals);

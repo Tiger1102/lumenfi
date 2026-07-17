@@ -1,7 +1,7 @@
 import { RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
-import { ARC_TOKENS, arcPublicClient, erc20Abi, formatTokenAmount, getTokenAddress } from "../lib/arc";
+import { ARC_TOKENS, arcPublicClient, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, readWithRetry } from "../lib/arc";
 import { formatLpAmount, managePoolLiquidity, poolPosition, quoteRemoveLiquidity, removePoolLiquidity, swapPoolAddress } from "../lib/swapPool";
 import { PanelNotice } from "./PanelNotice";
 
@@ -15,6 +15,7 @@ type PoolPosition = {
 type PoolLiquidityPanelProps = {
   address?: Address;
   walletClient?: WalletClient;
+  onConnect: () => Promise<void>;
   setStatus: (message: string, state?: "success" | "error" | "loading", txHash?: string) => void;
 };
 
@@ -32,13 +33,14 @@ function readableLiquidityError(error: unknown) {
   return message || "Liquidity transaction failed.";
 }
 
-export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiquidityPanelProps) {
+export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus }: PoolLiquidityPanelProps) {
   const [mode, setMode] = useState<"add" | "remove">("add");
   const [usdcAmount, setUsdcAmount] = useState("25");
   const [eurcAmount, setEurcAmount] = useState("25");
   const [removePercent, setRemovePercent] = useState("25");
   const [position, setPosition] = useState<PoolPosition | null>(null);
   const [walletBalances, setWalletBalances] = useState({ USDC: 0n, EURC: 0n });
+  const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
 
   async function refresh() {
@@ -46,20 +48,44 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
       return;
     }
 
-    const [nextPosition, usdcBalance, eurcBalance] = await Promise.all([
-      poolPosition(address),
-      address
-        ? arcPublicClient.readContract({ address: getTokenAddress("USDC"), abi: erc20Abi, functionName: "balanceOf", args: [address] })
-        : Promise.resolve(0n),
-      address
-        ? arcPublicClient.readContract({ address: getTokenAddress("EURC"), abi: erc20Abi, functionName: "balanceOf", args: [address] })
-        : Promise.resolve(0n)
-    ]);
-    setPosition(nextPosition);
-    setWalletBalances({ USDC: usdcBalance, EURC: eurcBalance });
+    setLoading(true);
+
+    try {
+      const nextPosition = await poolPosition(address);
+      const usdcBalance = address
+        ? await readWithRetry(
+            () => arcPublicClient.readContract({ address: getTokenAddress("USDC"), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+            "USDC wallet balance"
+          )
+        : 0n;
+      const eurcBalance = address
+        ? await readWithRetry(
+            () => arcPublicClient.readContract({ address: getTokenAddress("EURC"), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+            "EURC wallet balance"
+          )
+        : 0n;
+      setPosition(nextPosition);
+      setWalletBalances({ USDC: usdcBalance, EURC: eurcBalance });
+    } catch (error) {
+      const message = error instanceof Error ? `Pool read failed: ${error.message}` : "Pool read failed.";
+      setNotice({ status: "error", message });
+      setStatus(message, "error");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function execute() {
+    if (!address) {
+      await onConnect();
+      return;
+    }
+
+    if (loading || !canExecute) {
+      return;
+    }
+
     if (!walletClient || !address) {
       setNotice({ status: "error", message: "Connect wallet before managing liquidity." });
       setStatus("Connect wallet before managing liquidity.", "error");
@@ -87,7 +113,13 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
   }
 
   useEffect(() => {
-    refresh().catch(() => undefined);
+    let cancelled = false;
+    refresh().catch(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [address]);
 
   const poolShare = useMemo(() => {
@@ -111,7 +143,42 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
         : 0n;
   const removePreview = position ? quoteRemoveLiquidity(position, sharesToRemove) : { usdcAmount: 0n, eurcAmount: 0n };
   const hasLpPosition = Boolean(position && position.lpBalance > 0n);
-  const buttonLabel = mode === "add" ? "Add liquidity" : "Remove liquidity";
+  const parsedUsdcAmount = useMemo(() => {
+    try {
+      return parseTokenAmount(usdcAmount, ARC_TOKENS.USDC);
+    } catch {
+      return 0n;
+    }
+  }, [usdcAmount]);
+  const parsedEurcAmount = useMemo(() => {
+    try {
+      return parseTokenAmount(eurcAmount, ARC_TOKENS.EURC);
+    } catch {
+      return 0n;
+    }
+  }, [eurcAmount]);
+  const addAmountsInvalid = parsedUsdcAmount === 0n || parsedEurcAmount === 0n;
+  const insufficientUsdc = parsedUsdcAmount > walletBalances.USDC;
+  const insufficientEurc = parsedEurcAmount > walletBalances.EURC;
+  const canExecute =
+    Boolean(address && walletClient && swapPoolAddress) &&
+    !loading &&
+    (mode === "add" ? !addAmountsInvalid && !insufficientUsdc && !insufficientEurc : hasLpPosition && sharesToRemove > 0n);
+  const buttonLabel = !address
+    ? "Connect Wallet"
+    : loading
+      ? "Loading Network Data..."
+      : mode === "add" && insufficientUsdc
+        ? "Insufficient USDC Balance"
+        : mode === "add" && insufficientEurc
+          ? "Insufficient EURC Balance"
+          : mode === "add" && addAmountsInvalid
+            ? "Enter Pool Amounts"
+            : mode === "remove" && !hasLpPosition
+              ? "No LP Shares"
+              : mode === "remove" && sharesToRemove === 0n
+                ? "Select LP Amount"
+                : mode === "add" ? "Add Liquidity" : "Remove Liquidity";
   const poolRate =
     position && position.usdcReserve > 0n
       ? Number(formatTokenAmount(position.eurcReserve, ARC_TOKENS.EURC)) / Number(formatTokenAmount(position.usdcReserve, ARC_TOKENS.USDC))
@@ -124,7 +191,7 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
           <p className="eyebrow">Permissionless liquidity</p>
           <h2>USDC / EURC pool</h2>
         </div>
-        <button className="iconButton" type="button" onClick={refresh} title="Refresh pool">
+        <button className="iconButton" type="button" onClick={refresh} title="Refresh pool" disabled={loading}>
           <RefreshCcw size={18} />
         </button>
       </div>
@@ -144,33 +211,33 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
       <div className="poolProStats">
         <div className="poolProCard primary">
           <span>My pool assets</span>
-          <strong>{position ? `$${poolValue.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "--"}</strong>
-          <em>{poolShare} of active pool</em>
+          <strong>{loading ? <i className="skeletonText" /> : `$${poolValue.toLocaleString("en-US", { maximumFractionDigits: 4 })}`}</strong>
+          <em>{loading ? <i className="skeletonText tiny" /> : `${poolShare} of active pool`}</em>
         </div>
 
         <div className="poolProCard">
           <span>USDC reserve</span>
-          <strong>{position ? formatTokenAmount(position.usdcReserve, ARC_TOKENS.USDC) : "--"}</strong>
+          <strong>{loading ? <i className="skeletonText" /> : formatTokenAmount(position?.usdcReserve ?? 0n, ARC_TOKENS.USDC)}</strong>
         </div>
 
         <div className="poolProCard">
           <span>EURC reserve</span>
-          <strong>{position ? formatTokenAmount(position.eurcReserve, ARC_TOKENS.EURC) : "--"}</strong>
+          <strong>{loading ? <i className="skeletonText" /> : formatTokenAmount(position?.eurcReserve ?? 0n, ARC_TOKENS.EURC)}</strong>
         </div>
       </div>
 
       <div className="poolProStats compact" aria-label="My pool position">
         <div className="poolProCard">
           <span>My USDC</span>
-          <strong>{position ? formatTokenAmount(userUsdc, ARC_TOKENS.USDC) : "--"}</strong>
+          <strong>{loading ? <i className="skeletonText small" /> : formatTokenAmount(userUsdc, ARC_TOKENS.USDC)}</strong>
         </div>
         <div className="poolProCard">
           <span>My EURC</span>
-          <strong>{position ? formatTokenAmount(userEurc, ARC_TOKENS.EURC) : "--"}</strong>
+          <strong>{loading ? <i className="skeletonText small" /> : formatTokenAmount(userEurc, ARC_TOKENS.EURC)}</strong>
         </div>
         <div className="poolProCard">
           <span>My LP shares</span>
-          <strong>{position ? formatLpAmount(position.lpBalance) : "--"}</strong>
+          <strong>{loading ? <i className="skeletonText small" /> : formatLpAmount(position?.lpBalance ?? 0n)}</strong>
         </div>
       </div>
 
@@ -226,7 +293,7 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
                   MAX
                 </button>
               </div>
-              <small>Available {position ? formatLpAmount(position.lpBalance) : "--"} LP shares</small>
+              <small>Available {loading ? "loading" : formatLpAmount(position?.lpBalance ?? 0n)} LP shares</small>
             </label>
           </div>
         )}
@@ -248,10 +315,10 @@ export function PoolLiquidityPanel({ address, walletClient, setStatus }: PoolLiq
 
         <div className="poolRateBox poolSpanAll">
           <span>Pool rate</span>
-          <strong>1 USDC = {poolRate ? poolRate.toFixed(4) : "--"} EURC</strong>
+          <strong>{loading ? <i className="skeletonText small" /> : `1 USDC = ${poolRate ? poolRate.toFixed(4) : "0"} EURC`}</strong>
         </div>
 
-        <button className="primaryButton" type="button" onClick={execute} disabled={mode === "remove" && !hasLpPosition}>
+        <button className="primaryButton" type="button" onClick={execute} disabled={address ? !canExecute : false}>
           {buttonLabel}
         </button>
       </div>

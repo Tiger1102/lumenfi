@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, ArrowRightLeft, BrainCircuit, CheckCircle2, ChevronDown, Copy, ExternalLink, Gauge, Landmark, Layers3, PlugZap, ShieldCheck, X, Zap } from "lucide-react";
+import { Activity, ArrowRight, ArrowRightLeft, BrainCircuit, CheckCircle2, ChevronDown, Copy, ExternalLink, Landmark, Layers3, PlugZap, ShieldCheck, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
 import projectSubmission from "../docs/project-submission.md?raw";
@@ -9,11 +9,14 @@ import { MarkdownDoc } from "./components/MarkdownDoc";
 import { PoolLiquidityPanel } from "./components/PoolLiquidityPanel";
 import { SwapPanel } from "./components/SwapPanel";
 import { roadmapItems } from "./content/roadmap";
-import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, switchToArc, type TokenSymbol } from "./lib/arc";
+import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
+import { lendingPoolAddress } from "./lib/lending";
+import { swapPoolAddress } from "./lib/swapPool";
 import { connectInjectedWallet, type ConnectedWallet } from "./lib/wallet";
 
 type StatusState = { state: "idle" | "loading" | "success" | "error"; message: string; txHash?: string };
 type Page = "overview" | "app" | "bridge";
+type MarketTab = "swap" | "pool" | "lending";
 
 const pagePaths: Record<Page, string> = {
   overview: "/",
@@ -47,8 +50,8 @@ const protocolLinks = [
 ];
 
 const contractRows = [
-  ["LendingPool", "Collateralized lending, borrowing, repayment, and account health", "0x7328b1293671990afd3d9216d6440b19c73f4cb0"],
-  ["PermissionlessStablePool", "USDC/EURC liquidity pool with LP shares and swap fee accrual", "0xca715f47b8f3dc8c4ee70e246535a4f2ad8ca167"],
+  ["LendingPool", "Collateralized lending, borrowing, repayment, and account health", lendingPoolAddress],
+  ["PermissionlessStablePool", "USDC/EURC liquidity pool with LP shares and swap fee accrual", swapPoolAddress],
   ["USDC", "Arc ERC-20 USDC balance and approvals", "0x3600000000000000000000000000000000000000"],
   ["EURC", "Arc Testnet EURC asset", "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"]
 ];
@@ -70,8 +73,13 @@ const heroProofPoints = [
 const workspaceTrustItems = [
   "Public contract links",
   "Explorer-ready receipts",
-  "Wallet balance refresh",
-  "Circle App Kit routing"
+  "Wallet balance refresh"
+];
+
+const marketTabs: { id: MarketTab; label: string }[] = [
+  { id: "swap", label: "Swap" },
+  { id: "pool", label: "Liquidity Pools" },
+  { id: "lending", label: "Lending Market" }
 ];
 
 export default function App() {
@@ -82,6 +90,8 @@ export default function App() {
   const [page, setPageState] = useState<Page>(() => pageFromPath(window.location.pathname));
   const [balancePopoverOpen, setBalancePopoverOpen] = useState(false);
   const [isArcNetwork, setIsArcNetwork] = useState(true);
+  const [balancesLoading, setBalancesLoading] = useState(false);
+  const [activeMarketTab, setActiveMarketTab] = useState<MarketTab>("swap");
   const balancePopoverRef = useRef<HTMLDivElement>(null);
 
   const totalBalance = useMemo(() => {
@@ -179,16 +189,30 @@ export default function App() {
   }
 
   async function refreshBalances(address: Address) {
-    const entries = await Promise.all(
-      BALANCE_TOKEN_SYMBOLS.map(async (symbol) => {
+    setBalancesLoading(true);
+
+    try {
+      const entries: [TokenSymbol, bigint][] = [];
+      for (const symbol of BALANCE_TOKEN_SYMBOLS) {
         const token = ARC_TOKENS[symbol];
-        const value = token.address
-          ? await arcPublicClient.readContract({ address: getTokenAddress(symbol), abi: erc20Abi, functionName: "balanceOf", args: [address] })
-          : 0n;
-        return [token.symbol, value] as const;
-      })
-    );
-    setBalances(Object.fromEntries(entries) as Partial<Record<TokenSymbol, bigint>>);
+        if (!token.address) {
+          entries.push([token.symbol, 0n]);
+          continue;
+        }
+
+        const value = await readWithRetry(
+          () => arcPublicClient.readContract({ address: getTokenAddress(symbol), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+          `${symbol} balance`
+        );
+        entries.push([token.symbol, value]);
+      }
+      setBalances(Object.fromEntries(entries) as Partial<Record<TokenSymbol, bigint>>);
+    } catch (error) {
+      setStatus(error instanceof Error ? `Balance read failed: ${error.message}` : "Balance read failed.", "error");
+      throw error;
+    } finally {
+      setBalancesLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -420,19 +444,34 @@ export default function App() {
           </div>
           <div className="trustStrip proMaxTrust" aria-label="Workspace quality controls">
             {workspaceTrustItems.map((item) => <span key={item}>{item}</span>)}
-            <strong><Gauge size={16} />Built for repeat DeFi actions with clearer routing, balances, and transaction context.</strong>
           </div>
 
           <div className="proSections">
-            <div className="workspaceHeader">
-              <div><p className="eyebrow">Workspace</p><h3>Professional market lanes</h3></div>
+            <div className="moduleTabs" aria-label="Market modules">
+              {marketTabs.map((tab) => (
+                <button className={activeMarketTab === tab.id ? "active" : ""} type="button" key={tab.id} onClick={() => setActiveMarketTab(tab.id)}>
+                  {tab.label}
+                </button>
+              ))}
             </div>
-            <div className="portfolioRow singlePanel" aria-label="Pool liquidity">
-              <PoolLiquidityPanel address={wallet?.address} walletClient={wallet?.walletClient} setStatus={setStatus} />
-            </div>
-            <div className="marketsRow" aria-label="Core market actions">
-              <SwapPanel address={wallet?.address} provider={wallet?.provider} walletClient={wallet?.walletClient} balances={balances} setStatus={setStatus} />
-              <LendingPanel address={wallet?.address} walletClient={wallet?.walletClient} setStatus={setStatus} />
+            <div className="marketModule" aria-label="Selected market action">
+              {activeMarketTab === "swap" && (
+                <SwapPanel
+                  address={wallet?.address}
+                  provider={wallet?.provider}
+                  walletClient={wallet?.walletClient}
+                  balances={balances}
+                  balancesLoading={balancesLoading}
+                  onConnect={connect}
+                  setStatus={setStatus}
+                />
+              )}
+              {activeMarketTab === "pool" && (
+                <PoolLiquidityPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
+              )}
+              {activeMarketTab === "lending" && (
+                <LendingPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
+              )}
             </div>
           </div>
         </section>
