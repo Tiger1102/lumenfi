@@ -223,6 +223,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (status.state === "idle" || status.state === "loading" || !status.message) return;
+    const timer = window.setTimeout(() => setStatusState({ state: "idle", message: "" }), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
     if (!wallet?.provider?.on) return;
     const handleAccountsChanged = () => connect().catch(() => undefined);
     const handleChainChanged = () => {
@@ -497,6 +503,8 @@ export default function App() {
       )}
 
       {activeDoc && <div className="docOverlay" role="dialog" aria-modal="true" aria-label={activeDoc === "whitepaper" ? "Whitepaper" : "Submission"}><div className="docModal"><div className="docHeader"><div><p className="eyebrow">LumenFi docs</p><h2>{activeDoc === "whitepaper" ? "Whitepaper" : "Project submission"}</h2></div><button className="iconButton" type="button" onClick={() => setActiveDoc(null)} title="Close document"><X size={18} /></button></div><MarkdownDoc content={activeDoc === "whitepaper" ? whitepaper : projectSubmission} /></div></div>}
+
+      {status.message && <div className={`systemToast ${status.state}`} role="status"><span>{status.message}</span>{status.txHash && <a href={`https://testnet.arcscan.app/tx/${status.txHash}`} target="_blank" rel="noreferrer">View transaction</a>}<button type="button" onClick={() => setStatusState({ state: "idle", message: "" })}>Close</button></div>}
 
       <footer className="siteFooter">
         <div className="footerTop">

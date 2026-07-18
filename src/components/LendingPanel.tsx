@@ -2,7 +2,7 @@ import { Banknote, HandCoins } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { formatUnits } from "viem";
-import { getAccountData, getLendingTokenPosition, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
+import { approveLending, getAccountData, getLendingAllowance, getLendingTokenPosition, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
 import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type TokenSymbol } from "../lib/arc";
 import { PanelNotice } from "./PanelNotice";
 
@@ -59,20 +59,28 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const [accountData, setAccountData] = useState<readonly [bigint, bigint, bigint, bigint] | null>(null);
   const [tokenPosition, setTokenPosition] = useState<LendingTokenPosition | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
+  const [allowance, setAllowance] = useState(0n);
+  const [allowanceLoading, setAllowanceLoading] = useState(false);
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
 
   async function refreshAccountData() {
     if (!address || !lendingPoolAddress) {
+      setAccountData(null);
+      setTokenPosition(null);
+      setDataReady(false);
       return;
     }
 
     setLoading(true);
+    setDataReady(false);
 
     try {
       const data = await getAccountData(address);
       const nextTokenPosition = await getLendingTokenPosition(address, token);
       setAccountData(data);
       setTokenPosition(nextTokenPosition);
+      setDataReady(true);
     } catch (error) {
       const message = error instanceof Error ? `Lending read failed: ${error.message}` : "Lending read failed.";
       setNotice({ status: "error", message });
@@ -89,13 +97,25 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
       return;
     }
 
-    if (loading || !canExecute) {
+    if (loading || allowanceLoading || !canExecute) {
       return;
     }
 
     if (!walletClient || !address) {
       setNotice({ status: "error", message: "Connect wallet before using lending." });
       setStatus("Connect wallet before using lending.", "error");
+      return;
+    }
+
+    if (needsApproval) {
+      try {
+        setStatus(`Approving ${token}...`, "loading");
+        await approveLending(walletClient, address, token, amount);
+        setAllowance(parsedAmount);
+        setStatus(`${token} approved.`, "success");
+      } catch (error) {
+        setStatus(readableLendingError(error), "error");
+      }
       return;
     }
 
@@ -118,6 +138,14 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
     refreshAccountData().catch(() => undefined);
   }, [address, token]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!address || (actionMode !== "deposit" && actionMode !== "repay")) { setAllowance(0n); return; }
+    setAllowanceLoading(true);
+    getLendingAllowance(address, token).then((value) => { if (!cancelled) setAllowance(value); }).catch((error) => setStatus(error instanceof Error ? error.message : "Allowance read failed.", "error")).finally(() => { if (!cancelled) setAllowanceLoading(false); });
+    return () => { cancelled = true; };
+  }, [address, token, actionMode]);
+
   const tokenMeta = ARC_TOKENS[token];
   const collateral = accountData ? formatUnits(accountData[0], 6) : "0";
   const debt = accountData ? formatUnits(accountData[1], 6) : "0";
@@ -130,7 +158,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const estimatedBorrowCost = debtValue * (BORROW_APR / 100);
   const netInterest = estimatedSupplyInterest - estimatedBorrowCost;
   const liquidationBuffer = debtValue > 0 ? Math.max(0, collateralValue - debtValue / 0.85) : 0;
-  const walletBalanceText = tokenPosition ? formatTokenAmount(tokenPosition.walletBalance, tokenMeta) : "--";
+  const walletBalanceText = tokenPosition ? formatTokenAmount(tokenPosition.walletBalance, tokenMeta) : "";
   const parsedAmount = useMemo(() => {
     try {
       return parseTokenAmount(amount, tokenMeta);
@@ -170,13 +198,16 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const exceedsActionMax = Boolean(tokenPosition && (actionMode === "withdraw" || actionMode === "borrow" || actionMode === "repay") && parsedAmount > maxForAction);
   const canExecute =
     Boolean(address && walletClient && lendingPoolAddress) &&
+    dataReady &&
     !loading &&
+    !allowanceLoading &&
     parsedAmount > 0n &&
     !insufficientWalletBalance &&
     !exceedsActionMax;
+  const needsApproval = Boolean((actionMode === "deposit" || actionMode === "repay") && parsedAmount > allowance);
   const ctaLabel = !address
     ? "Connect Wallet"
-    : loading
+    : loading || allowanceLoading
       ? "Loading Network Data..."
       : parsedAmount === 0n
         ? "Enter Amount"
@@ -184,7 +215,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
           ? `Insufficient ${token} Balance`
           : exceedsActionMax
             ? `Amount Exceeds ${actionLabel(actionMode)} Limit`
-            : actionLabel(actionMode);
+            : needsApproval ? `Approve ${token}` : actionLabel(actionMode);
 
   function setMaxAmount() {
     setAmount(formatTokenAmount(maxForAction, tokenMeta));
@@ -199,28 +230,28 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
         </div>
         <HandCoins size={20} />
       </div>
-      <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
+      <PanelNotice status={notice?.status === "error" ? undefined : notice?.status} message={notice?.status === "error" ? undefined : notice?.message} txHash={notice?.txHash} />
 
       {!lendingPoolAddress && <div className="notice">Deploy LendingPool and set VITE_LENDING_POOL_ADDRESS.</div>}
 
       <div className="lendingCleanOverview" aria-label="Account overview">
         <div className="lendingCleanStat">
           <span>COLLATERAL</span>
-          <strong>{loading ? <i className="skeletonText small" /> : collateral}</strong>
+          <strong>{!dataReady || loading ? <i className="skeletonText small" /> : collateral}</strong>
         </div>
         <div className="lendingCleanStat">
           <span>DEBT</span>
-          <strong>{loading ? <i className="skeletonText small" /> : debt}</strong>
+          <strong>{!dataReady || loading ? <i className="skeletonText small" /> : debt}</strong>
         </div>
         <div className="lendingCleanHealth">
           <div>
             <span>HEALTH</span>
-            <strong>{loading ? <i className="skeletonText small" /> : health}</strong>
+            <strong>{!dataReady || loading ? <i className="skeletonText small" /> : health}</strong>
           </div>
           <div className={`lendingCleanHealthBar ${healthTone}`} aria-hidden="true">
             <i style={{ width: `${accountData ? healthScore : 0}%` }} />
           </div>
-          <small>{debtValue > 0 ? `Liquidation Buffer: $${formatUsd(liquidationBuffer)}` : "Liquidation Buffer: No debt"}</small>
+          <small>{dataReady ? debtValue > 0 ? `Liquidation Buffer: $${formatUsd(liquidationBuffer)}` : "Liquidation Buffer: No debt" : "Loading account health"}</small>
         </div>
       </div>
 
@@ -251,7 +282,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
               </div>
               <div>
                 <span>NET YEARLY</span>
-                <strong>{loading ? <i className="skeletonText tiny" /> : `${netInterest >= 0 ? "+" : "-"}$${formatUsd(Math.abs(netInterest))}`}</strong>
+                <strong>{!dataReady || loading ? <i className="skeletonText tiny" /> : `${netInterest >= 0 ? "+" : "-"}$${formatUsd(Math.abs(netInterest))}`}</strong>
               </div>
             </div>
           </div>
@@ -268,21 +299,21 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
             <div className="lendingCleanPositions" aria-label="Selected asset position">
               <div>
                 <span>MY SUPPLIED</span>
-                <strong>{loading ? <i className="skeletonText tiny" /> : formatTokenAmount(tokenPosition?.collateral ?? 0n, tokenMeta)}</strong>
+                <strong>{!dataReady || loading ? <i className="skeletonText tiny" /> : formatTokenAmount(tokenPosition?.collateral ?? 0n, tokenMeta)}</strong>
               </div>
               <div>
                 <span>MY DEBT</span>
-                <strong>{loading ? <i className="skeletonText tiny" /> : formatTokenAmount(tokenPosition?.debt ?? 0n, tokenMeta)}</strong>
+                <strong>{!dataReady || loading ? <i className="skeletonText tiny" /> : formatTokenAmount(tokenPosition?.debt ?? 0n, tokenMeta)}</strong>
               </div>
               <div>
                 <span title="Maximum available for the selected action">MAX AVAIL.</span>
-                <strong>{loading ? <i className="skeletonText tiny" /> : formatTokenAmount(maxForAction, tokenMeta)}</strong>
+                <strong>{!dataReady || loading ? <i className="skeletonText tiny" /> : formatTokenAmount(maxForAction, tokenMeta)}</strong>
               </div>
             </div>
             <label className="field amountField">
               <div className="lendingCleanAmountHeader">
                 <span>Amount to {actionLabel(actionMode)}</span>
-                <b>{loading ? <i className="skeletonText tiny" /> : `Wallet ${walletBalanceText} ${token}`}</b>
+                <b>{!dataReady || loading ? <i className="skeletonText tiny" /> : `Wallet ${walletBalanceText} ${token}`}</b>
               </div>
               <div className="lendingCleanInputRow">
                 <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />

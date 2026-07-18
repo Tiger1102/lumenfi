@@ -100,6 +100,23 @@ export type LendingTokenPosition = {
   walletBalance: bigint;
 };
 
+export async function getLendingAllowance(owner: Address, tokenSymbol: TokenSymbol) {
+  if (!lendingPoolAddress) return 0n;
+  return readWithRetry(() => arcPublicClient.readContract({
+    address: getTokenAddress(tokenSymbol),
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [owner, lendingPoolAddress]
+  }), `${tokenSymbol} lending allowance`);
+}
+
+export async function approveLending(walletClient: WalletClient, owner: Address, tokenSymbol: TokenSymbol, amountText: string) {
+  const amount = parseTokenAmount(amountText, ARC_TOKENS[tokenSymbol]);
+  if (!lendingPoolAddress || amount === 0n) throw new Error("Enter an amount before approving.");
+  const hash = await walletClient.writeContract({ address: getTokenAddress(tokenSymbol), abi: erc20Abi, functionName: "approve", args: [lendingPoolAddress, amount], account: owner, chain: arcTestnet });
+  return arcPublicClient.waitForTransactionReceipt({ hash });
+}
+
 export async function approveIfNeeded(walletClient: WalletClient, owner: Address, tokenSymbol: TokenSymbol, amountText: string) {
   if (!lendingPoolAddress) {
     throw new Error("Lending market is not configured for this deployment.");

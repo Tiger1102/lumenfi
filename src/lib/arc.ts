@@ -1,7 +1,11 @@
-﻿import { createPublicClient, defineChain, formatUnits, http, parseUnits, type Address } from "viem";
+﻿import { createPublicClient, defineChain, fallback, formatUnits, http, parseUnits, type Address } from "viem";
 
 export const ARC_TESTNET_CHAIN_ID = 5042002;
 export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
+export const ARC_TESTNET_RPCS = [
+  ARC_TESTNET_RPC,
+  ...(import.meta.env.VITE_ARC_FALLBACK_RPCS || "").split(",").map((url) => url.trim()).filter(Boolean)
+];
 
 export const arcTestnet = defineChain({
   id: ARC_TESTNET_CHAIN_ID,
@@ -13,7 +17,7 @@ export const arcTestnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [ARC_TESTNET_RPC]
+      http: ARC_TESTNET_RPCS
     }
   },
   blockExplorers: {
@@ -27,7 +31,10 @@ export const arcTestnet = defineChain({
 
 export const arcPublicClient = createPublicClient({
   chain: arcTestnet,
-  transport: http(ARC_TESTNET_RPC)
+  transport: fallback(
+    ARC_TESTNET_RPCS.map((url) => http(url, { timeout: 3_000, retryCount: 1, retryDelay: 250 })),
+    { rank: true, retryCount: 2 }
+  )
 });
 
 export type TokenSymbol = "USDC" | "EURC" | "cirBTC";
@@ -58,7 +65,7 @@ export const ARC_TOKENS: Record<TokenSymbol, ArcToken> = {
   cirBTC: {
     symbol: "cirBTC",
     name: "Circle Bitcoin",
-    address: import.meta.env.VITE_CIRBTC_ADDRESS || undefined,
+    address: (import.meta.env.VITE_CIRBTC_ADDRESS || undefined) as Address | undefined,
     decimals: 8,
     accent: "#f7931a"
   }
@@ -172,7 +179,7 @@ export async function switchToArc(provider: EIP1193Provider) {
             symbol: "USDC",
             decimals: 18
           },
-          rpcUrls: [ARC_TESTNET_RPC],
+          rpcUrls: ARC_TESTNET_RPCS,
           blockExplorerUrls: ["https://testnet.arcscan.app"]
         }
       ]

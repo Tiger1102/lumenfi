@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { isCircleAppKitEnabled, requestSwap } from "../lib/circle";
 import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type EIP1193Provider, type TokenSymbol } from "../lib/arc";
-import { getPoolSwapPreview, poolSwap, supportsPoolSwap, swapPoolAddress } from "../lib/swapPool";
+import { approveSwap, getPoolSwapPreview, getSwapAllowance, poolSwap, supportsPoolSwap, swapPoolAddress } from "../lib/swapPool";
 import { PanelNotice } from "./PanelNotice";
 import { TokenSelect } from "./TokenSelect";
 
@@ -41,7 +41,9 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
   const [from, setFrom] = useState<TokenSymbol>("USDC");
   const [to, setTo] = useState<TokenSymbol>("EURC");
   const [amount, setAmount] = useState("10");
-  const [preview, setPreview] = useState("--");
+  const [preview, setPreview] = useState("");
+  const [allowance, setAllowance] = useState(0n);
+  const [allowanceLoading, setAllowanceLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [slippage, setSlippage] = useState("0.5");
@@ -52,7 +54,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
     setPreviewError("");
 
     if (!supportsPoolSwap(from, to) || !swapPoolAddress) {
-      setPreview("--");
+      setPreview("");
       setPreviewLoading(false);
       return () => {
         cancelled = true;
@@ -63,12 +65,12 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
     getPoolSwapPreview(address, from, to, amount)
       .then((nextPreview) => {
         if (!cancelled) {
-          setPreview(nextPreview ? nextPreview.outputText : "--");
+          setPreview(nextPreview ? nextPreview.outputText : "");
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setPreview("--");
+          setPreview("");
           setPreviewError(error instanceof Error ? error.message : "Swap quote failed.");
         }
       })
@@ -83,9 +85,17 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
     };
   }, [address, from, to, amount]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!address || !supportsPoolSwap(from, to)) { setAllowance(0n); return; }
+    setAllowanceLoading(true);
+    getSwapAllowance(address, from).then((value) => { if (!cancelled) setAllowance(value); }).catch((error) => setStatus(error instanceof Error ? error.message : "Allowance read failed.", "error")).finally(() => { if (!cancelled) setAllowanceLoading(false); });
+    return () => { cancelled = true; };
+  }, [address, from, to]);
+
   const slippageValue = Math.max(0, Math.min(50, Number(slippage) || 0));
   const previewValue = Number(preview);
-  const minimumReceived = Number.isFinite(previewValue) && preview !== "--" ? (previewValue * (1 - slippageValue / 100)).toFixed(4) : "--";
+  const minimumReceived = Number.isFinite(previewValue) && preview ? (previewValue * (1 - slippageValue / 100)).toFixed(4) : "";
   const fromBalance = formatTokenAmount(balances[from] ?? 0n, ARC_TOKENS[from]);
   const parsedAmount = useMemo(() => {
     try {
@@ -95,7 +105,8 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
     }
   }, [amount, from]);
   const hasInsufficientBalance = Boolean(address && parsedAmount > (balances[from] ?? 0n));
-  const isLoadingNetworkData = balancesLoading || previewLoading;
+  const needsApproval = Boolean(address && supportsPoolSwap(from, to) && parsedAmount > allowance);
+  const isLoadingNetworkData = balancesLoading || previewLoading || allowanceLoading;
   const isValidSwap = Boolean(address && walletClient && provider && from !== to && parsedAmount > 0n && !hasInsufficientBalance && !isLoadingNetworkData);
   const ctaLabel = !address
     ? "Connect Wallet"
@@ -107,7 +118,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           ? "Enter Amount"
           : hasInsufficientBalance
             ? `Insufficient ${from} Balance`
-            : "Swap";
+            : needsApproval ? `Approve ${from}` : "Swap";
 
   function reverseTokens() {
     setFrom(to);
@@ -131,6 +142,18 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
     if (!provider || !walletClient || !address) {
       setNotice({ status: "error", message: "Connect wallet before swapping." });
       setStatus("Connect wallet before swapping.", "error");
+      return;
+    }
+
+    if (needsApproval) {
+      try {
+        setStatus(`Approving ${from}...`, "loading");
+        await approveSwap(walletClient, address, from, amount);
+        setAllowance(parsedAmount);
+        setStatus(`${from} approved.`, "success");
+      } catch (error) {
+        setStatus(readableSwapError(error), "error");
+      }
       return;
     }
 
@@ -183,7 +206,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           <h2>Swap</h2>
         </div>
       </div>
-      <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
+      <PanelNotice status={notice?.status === "error" ? undefined : notice?.status} message={notice?.status === "error" ? undefined : notice?.message} txHash={notice?.txHash} />
 
       <div className="swapPanelBody">
         <div className="tokenAmountBox">
@@ -209,11 +232,11 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           </div>
           <div className="tokenAmountMain">
             <TokenSelect value={to} onChange={setTo} tokens={PUBLIC_SWAP_TOKENS} />
-            <strong>{previewLoading ? <i className="skeletonText" /> : `${preview} ${to}`}</strong>
+            <strong>{previewLoading || !preview ? <i className="skeletonText" /> : `${preview} ${to}`}</strong>
             <button type="button" disabled>OUT</button>
           </div>
         </div>
-        {previewError && <div className="miniError">{previewError}</div>}
+        {previewError && <span className="srOnly">{previewError}</span>}
 
         <div className="slippagePanel" aria-label="Swap quote controls">
           <div className="slippageHeader">
@@ -233,7 +256,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           </div>
           <div className="minimumReceived">
             <span>MINIMUM RECEIVED</span>
-            <strong>{previewLoading ? <i className="skeletonText small" /> : `${minimumReceived} ${to}`}</strong>
+            <strong>{previewLoading || !minimumReceived ? <i className="skeletonText small" /> : `${minimumReceived} ${to}`}</strong>
           </div>
           {slippageValue > 1 && <p className="slippageWarning">Higher slippage may accept a worse execution price.</p>}
         </div>

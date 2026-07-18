@@ -369,3 +369,15 @@ export async function poolSwap(walletClient: WalletClient, owner: Address, from:
 
   return arcPublicClient.waitForTransactionReceipt({ hash: swapHash });
 }
+
+export async function getSwapAllowance(owner: Address, token: TokenSymbol) {
+  if (!swapPoolAddress || !ARC_TOKENS[token].address) return 0n;
+  return readWithRetry(() => arcPublicClient.readContract({ address: getTokenAddress(token), abi: erc20Abi, functionName: "allowance", args: [owner, swapPoolAddress] }), `${token} swap allowance`);
+}
+
+export async function approveSwap(walletClient: WalletClient, owner: Address, token: TokenSymbol, amountText: string) {
+  const amount = parseTokenAmount(amountText, ARC_TOKENS[token]);
+  if (!swapPoolAddress || amount === 0n) throw new Error("Enter an amount before approving.");
+  const hash = await walletClient.writeContract({ address: getTokenAddress(token), abi: erc20Abi, functionName: "approve", args: [swapPoolAddress, amount], account: owner, chain: arcTestnet });
+  return arcPublicClient.waitForTransactionReceipt({ hash });
+}
