@@ -100,27 +100,32 @@ export type LendingTokenPosition = {
   walletBalance: bigint;
 };
 
-export async function getLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
+const lendingSnapshotCache = new Map<string, { expiresAt: number; value: Awaited<ReturnType<typeof loadLendingSnapshot>> }>();
+
+async function loadLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
   if (!lendingPoolAddress) return null;
   const tokenAddress = getTokenAddress(tokenSymbol);
   const readLending = <T>(functionName: "getAccountData" | "collateralOf" | "debtOf", args: readonly Address[]) =>
-    readWithRetry(
-      () => arcPublicClient.readContract({ address: lendingPoolAddress, abi: lendingPoolAbi, functionName, args } as never) as Promise<T>,
-      `${tokenSymbol} ${functionName}`
-    );
+    readWithRetry(() => arcPublicClient.readContract({ address: lendingPoolAddress, abi: lendingPoolAbi, functionName, args } as never) as Promise<T>, `${tokenSymbol} ${functionName}`);
 
   const accountData = await readLending<readonly [bigint, bigint, bigint, bigint]>("getAccountData", [address]);
   const collateral = await readLending<bigint>("collateralOf", [address, tokenAddress]);
   const debt = await readLending<bigint>("debtOf", [address, tokenAddress]);
-  const walletBalance = await readWithRetry(
-    () => arcPublicClient.readContract({ address: tokenAddress, abi: erc20Abi, functionName: "balanceOf", args: [address] }),
-    `${tokenSymbol} wallet balance`
-  );
+  const walletBalance = await readWithRetry(() => arcPublicClient.readContract({ address: tokenAddress, abi: erc20Abi, functionName: "balanceOf", args: [address] }), `${tokenSymbol} wallet balance`);
+  return { accountData, position: { collateral, debt, totalSupplied: 0n, totalBorrowed: 0n, walletBalance } satisfies LendingTokenPosition };
+}
 
-  return {
-    accountData,
-    position: { collateral, debt, totalSupplied: 0n, totalBorrowed: 0n, walletBalance } satisfies LendingTokenPosition
-  };
+export async function getLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
+  const key = `${address.toLowerCase()}:${tokenSymbol}`;
+  const cached = lendingSnapshotCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const value = await loadLendingSnapshot(address, tokenSymbol);
+  lendingSnapshotCache.set(key, { value, expiresAt: Date.now() + 15_000 });
+  return value;
+}
+
+export function clearLendingSnapshotCache(address: Address, tokenSymbol: TokenSymbol) {
+  lendingSnapshotCache.delete(`${address.toLowerCase()}:${tokenSymbol}`);
 }
 
 export async function getLendingAllowance(owner: Address, tokenSymbol: TokenSymbol) {

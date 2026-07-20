@@ -461,7 +461,7 @@ export default function App() {
               ))}
             </div>
             <div className="marketModule" aria-label="Selected market action">
-              {activeMarketTab === "swap" && (
+              <div className={activeMarketTab === "swap" ? "modulePane active" : "modulePane"} aria-hidden={activeMarketTab !== "swap"}>
                 <SwapPanel
                   address={wallet?.address}
                   provider={wallet?.provider}
@@ -471,13 +471,13 @@ export default function App() {
                   onConnect={connect}
                   setStatus={setStatus}
                 />
-              )}
-              {activeMarketTab === "pool" && (
+              </div>
+              <div className={activeMarketTab === "pool" ? "modulePane active" : "modulePane"} aria-hidden={activeMarketTab !== "pool"}>
                 <PoolLiquidityPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
-              )}
-              {activeMarketTab === "lending" && (
+              </div>
+              <div className={activeMarketTab === "lending" ? "modulePane active" : "modulePane"} aria-hidden={activeMarketTab !== "lending"}>
                 <LendingPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
-              )}
+              </div>
             </div>
           </div>
         </section>

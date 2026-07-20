@@ -56,6 +56,9 @@
 }
 
 .marketModule > .panel { min-height: 680px; }
+.modulePane { display: none; width: 100%; }
+.modulePane.active { display: block; }
+.modulePane > .panel { width: 100%; }
 .skeletonText { min-width: 92px; min-height: 18px; }
 
 @media (max-width: 760px) {

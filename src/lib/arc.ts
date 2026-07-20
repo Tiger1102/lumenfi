@@ -35,8 +35,8 @@ export const arcTestnet = defineChain({
 export const arcPublicClient = createPublicClient({
   chain: arcTestnet,
   transport: fallback(
-    ARC_TESTNET_RPCS.map((url) => http(url, { timeout: 3_000, retryCount: 1, retryDelay: 250 })),
-    { rank: true, retryCount: 2 }
+    ARC_TESTNET_RPCS.map((url) => http(url, { timeout: 2_000, retryCount: 0 })),
+    { rank: true, retryCount: 0 }
   )
 });
 
@@ -126,23 +126,16 @@ export function isArcRateLimitError(error: unknown) {
 }
 
 export async function readWithRetry<T>(read: () => Promise<T>, label = "RPC read"): Promise<T> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < 4; attempt++) {
+  try {
+    return await read();
+  } catch (error) {
+    if (isArcRateLimitError(error)) await wait(250);
     try {
       return await read();
-    } catch (error) {
-      lastError = error;
-
-      if (!isArcRateLimitError(error) || attempt === 3) {
-        break;
-      }
-
-      await wait(350 * (attempt + 1));
+    } catch (retryError) {
+      throw retryError instanceof Error ? retryError : new Error(`${label} failed.`);
     }
   }
-
-  throw lastError instanceof Error ? lastError : new Error(`${label} failed.`);
 }
 
 export function formatTokenAmount(value: bigint, token: ArcToken) {

@@ -2,7 +2,7 @@ import { Banknote, HandCoins } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { formatUnits } from "viem";
-import { approveLending, getLendingAllowance, getLendingSnapshot, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
+import { approveLending, clearLendingSnapshotCache, getLendingAllowance, getLendingSnapshot, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
 import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type TokenSymbol } from "../lib/arc";
 import { PanelNotice } from "./PanelNotice";
 
@@ -125,6 +125,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
       const message = `${actionLabel(action)} completed.`;
       setNotice({ status: "success", message, txHash: receipt.transactionHash });
       setStatus(message, "success", receipt.transactionHash);
+      clearLendingSnapshotCache(address, token);
       await refreshAccountData();
     } catch (error) {
       const message = readableLendingError(error);
