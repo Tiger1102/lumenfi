@@ -103,27 +103,23 @@ export type LendingTokenPosition = {
 export async function getLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
   if (!lendingPoolAddress) return null;
   const tokenAddress = getTokenAddress(tokenSymbol);
-  const contract = { address: lendingPoolAddress, abi: lendingPoolAbi } as const;
-  const tokenContract = { address: tokenAddress, abi: erc20Abi } as const;
+  const readLending = <T>(functionName: "getAccountData" | "collateralOf" | "debtOf", args: readonly Address[]) =>
+    readWithRetry(
+      () => arcPublicClient.readContract({ address: lendingPoolAddress, abi: lendingPoolAbi, functionName, args } as never) as Promise<T>,
+      `${tokenSymbol} ${functionName}`
+    );
 
-  const [accountData, collateral, debt, totalSupplied, totalBorrowed, walletBalance] = await readWithRetry(
-    () => arcPublicClient.multicall({
-      allowFailure: false,
-      contracts: [
-        { ...contract, functionName: "getAccountData", args: [address] },
-        { ...contract, functionName: "collateralOf", args: [address, tokenAddress] },
-        { ...contract, functionName: "debtOf", args: [address, tokenAddress] },
-        { ...contract, functionName: "totalSupplied", args: [tokenAddress] },
-        { ...contract, functionName: "totalBorrowed", args: [tokenAddress] },
-        { ...tokenContract, functionName: "balanceOf", args: [address] }
-      ]
-    }),
-    `${tokenSymbol} lending snapshot`
+  const accountData = await readLending<readonly [bigint, bigint, bigint, bigint]>("getAccountData", [address]);
+  const collateral = await readLending<bigint>("collateralOf", [address, tokenAddress]);
+  const debt = await readLending<bigint>("debtOf", [address, tokenAddress]);
+  const walletBalance = await readWithRetry(
+    () => arcPublicClient.readContract({ address: tokenAddress, abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+    `${tokenSymbol} wallet balance`
   );
 
   return {
     accountData,
-    position: { collateral, debt, totalSupplied, totalBorrowed, walletBalance } satisfies LendingTokenPosition
+    position: { collateral, debt, totalSupplied: 0n, totalBorrowed: 0n, walletBalance } satisfies LendingTokenPosition
   };
 }
 
