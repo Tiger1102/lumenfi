@@ -4,8 +4,11 @@ export const ARC_TESTNET_CHAIN_ID = 5042002;
 export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
 export const ARC_TESTNET_RPCS = [
   ARC_TESTNET_RPC,
+  "https://rpc.blockdaemon.testnet.arc.network",
+  "https://rpc.drpc.testnet.arc.network",
+  "https://rpc.quicknode.testnet.arc.network",
   ...(import.meta.env.VITE_ARC_FALLBACK_RPCS || "").split(",").map((url) => url.trim()).filter(Boolean)
-];
+].filter((url, index, urls) => urls.indexOf(url) === index);
 
 export const arcTestnet = defineChain({
   id: ARC_TESTNET_CHAIN_ID,

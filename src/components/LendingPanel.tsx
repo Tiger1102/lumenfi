@@ -2,7 +2,7 @@ import { Banknote, HandCoins } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { formatUnits } from "viem";
-import { approveLending, getAccountData, getLendingAllowance, getLendingTokenPosition, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
+import { approveLending, getLendingAllowance, getLendingSnapshot, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
 import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type TokenSymbol } from "../lib/arc";
 import { PanelNotice } from "./PanelNotice";
 
@@ -76,10 +76,9 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
     setDataReady(false);
 
     try {
-      const data = await getAccountData(address);
-      const nextTokenPosition = await getLendingTokenPosition(address, token);
-      setAccountData(data);
-      setTokenPosition(nextTokenPosition);
+      const snapshot = await getLendingSnapshot(address, token);
+      setAccountData(snapshot?.accountData ?? null);
+      setTokenPosition(snapshot?.position ?? null);
       setDataReady(true);
     } catch (error) {
       const message = error instanceof Error ? `Lending read failed: ${error.message}` : "Lending read failed.";

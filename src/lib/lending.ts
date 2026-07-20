@@ -100,6 +100,33 @@ export type LendingTokenPosition = {
   walletBalance: bigint;
 };
 
+export async function getLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
+  if (!lendingPoolAddress) return null;
+  const tokenAddress = getTokenAddress(tokenSymbol);
+  const contract = { address: lendingPoolAddress, abi: lendingPoolAbi } as const;
+  const tokenContract = { address: tokenAddress, abi: erc20Abi } as const;
+
+  const [accountData, collateral, debt, totalSupplied, totalBorrowed, walletBalance] = await readWithRetry(
+    () => arcPublicClient.multicall({
+      allowFailure: false,
+      contracts: [
+        { ...contract, functionName: "getAccountData", args: [address] },
+        { ...contract, functionName: "collateralOf", args: [address, tokenAddress] },
+        { ...contract, functionName: "debtOf", args: [address, tokenAddress] },
+        { ...contract, functionName: "totalSupplied", args: [tokenAddress] },
+        { ...contract, functionName: "totalBorrowed", args: [tokenAddress] },
+        { ...tokenContract, functionName: "balanceOf", args: [address] }
+      ]
+    }),
+    `${tokenSymbol} lending snapshot`
+  );
+
+  return {
+    accountData,
+    position: { collateral, debt, totalSupplied, totalBorrowed, walletBalance } satisfies LendingTokenPosition
+  };
+}
+
 export async function getLendingAllowance(owner: Address, tokenSymbol: TokenSymbol) {
   if (!lendingPoolAddress) return 0n;
   return readWithRetry(() => arcPublicClient.readContract({
