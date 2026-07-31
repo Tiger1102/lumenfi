@@ -68,7 +68,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
     if (!address || !lendingPoolAddress) {
       setAccountData(null);
       setTokenPosition(null);
-      setDataReady(false);
+      setDataReady(true);
       return;
     }
 
@@ -158,7 +158,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const estimatedBorrowCost = debtValue * (BORROW_APR / 100);
   const netInterest = estimatedSupplyInterest - estimatedBorrowCost;
   const liquidationBuffer = debtValue > 0 ? Math.max(0, collateralValue - debtValue / 0.85) : 0;
-  const walletBalanceText = tokenPosition ? formatTokenAmount(tokenPosition.walletBalance, tokenMeta) : "";
+  const walletBalanceText = tokenPosition ? formatTokenAmount(tokenPosition.walletBalance, tokenMeta) : "0";
   const parsedAmount = useMemo(() => {
     try {
       return parseTokenAmount(amount, tokenMeta);
@@ -230,7 +230,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
         </div>
         <HandCoins size={20} />
       </div>
-      <PanelNotice status={notice?.status === "error" ? undefined : notice?.status} message={notice?.status === "error" ? undefined : notice?.message} txHash={notice?.txHash} />
+      <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
 
       {!lendingPoolAddress && <div className="notice">Deploy LendingPool and set VITE_LENDING_POOL_ADDRESS.</div>}
 
@@ -249,7 +249,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
             <strong>{!dataReady || loading ? <i className="skeletonText small" /> : health}</strong>
           </div>
           <div className={`lendingCleanHealthBar ${healthTone}`} aria-hidden="true">
-            <i style={{ width: `${accountData ? healthScore : 0}%` }} />
+            <i style={{ width: `${dataReady ? healthScore : 0}%` }} />
           </div>
           <small>{dataReady ? debtValue > 0 ? `Liquidation Buffer: $${formatUsd(liquidationBuffer)}` : "Liquidation Buffer: No debt" : "Loading account health"}</small>
         </div>

@@ -1,18 +1,19 @@
 import { Activity, ArrowRight, ArrowRightLeft, BrainCircuit, CheckCircle2, ChevronDown, Copy, ExternalLink, Landmark, Layers3, PlugZap, ShieldCheck, X, Zap } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
 import projectSubmission from "../docs/project-submission.md?raw";
 import whitepaper from "../docs/whitepaper.md?raw";
-import { BridgePanel } from "./components/BridgePanel";
-import { LendingPanel } from "./components/LendingPanel";
 import { MarkdownDoc } from "./components/MarkdownDoc";
-import { PoolLiquidityPanel } from "./components/PoolLiquidityPanel";
-import { SwapPanel } from "./components/SwapPanel";
 import { roadmapItems } from "./content/roadmap";
 import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
 import { lendingPoolAddress } from "./lib/lending";
 import { swapPoolAddress } from "./lib/swapPool";
 import { connectInjectedWallet, type ConnectedWallet } from "./lib/wallet";
+
+const BridgePanel = lazy(() => import("./components/BridgePanel").then((module) => ({ default: module.BridgePanel })));
+const LendingPanel = lazy(() => import("./components/LendingPanel").then((module) => ({ default: module.LendingPanel })));
+const PoolLiquidityPanel = lazy(() => import("./components/PoolLiquidityPanel").then((module) => ({ default: module.PoolLiquidityPanel })));
+const SwapPanel = lazy(() => import("./components/SwapPanel").then((module) => ({ default: module.SwapPanel })));
 
 type StatusState = { state: "idle" | "loading" | "success" | "error"; message: string; txHash?: string };
 type Page = "overview" | "app" | "bridge";
@@ -276,6 +277,7 @@ export default function App() {
 
   return (
     <main>
+      <a className="skipLink" href="#page-content">Skip to main content</a>
       <header className="topbar">
         <button className="brand" type="button" onClick={() => setPage("overview")} aria-label="LumenFi overview">
           <img className="brandMark" src="/lumenfi-logo.svg" alt="" />
@@ -312,6 +314,7 @@ export default function App() {
                 className="balanceTrigger"
                 type="button"
                 aria-expanded={balancePopoverOpen}
+                aria-label={`Wallet ${formatAddress(wallet.address)}, total balance $${totalBalance.toFixed(2)}`}
                 onClick={() => setBalancePopoverOpen((value) => !value)}
               >
                 <span>{formatAddress(wallet.address)}</span>
@@ -341,7 +344,7 @@ export default function App() {
                   <button type="button" onClick={copyAddress} title="Copy address"><Copy size={14} /></button>
                   <a href={`https://testnet.arcscan.app/address/${wallet.address}`} target="_blank" rel="noreferrer" title="View wallet on Arc Explorer"><ExternalLink size={14} /></a>
                 </div>
-                <button className="disconnectButton" type="button" onClick={disconnect}>Disconnect</button>
+                <button className="disconnectButton" type="button" onClick={disconnect} aria-label="Disconnect wallet">Disconnect</button>
               </>
             ) : (
               <button className="connectButton" type="button" onClick={connect}>
@@ -353,18 +356,22 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="mobileNav" aria-label="Mobile navigation">
+        <button className={page === "overview" ? "active" : ""} type="button" onClick={() => setPage("overview")}>Overview</button>
+        <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
+        <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
+      </nav>
+
+      <div id="page-content" tabIndex={-1}>
       {page === "overview" ? (
         <>
           <section className="heroBanner">
             <div className="heroCopy">
-              <p className="liveBadge"><span /> Production preview on Arc Testnet</p>
-              <h1>The smartest stablecoin DeFi workspace on Arc.</h1>
-              <p>LumenFi is a clean, all-in-one DeFi market interface on Arc Testnet, combining balances, swaps, LP positions, credit markets, and seamless USDC bridging.</p>
+              <p className="liveBadge"><span /> Live on Arc Testnet</p>
+              <h1>Stablecoin markets, built for Arc.</h1>
+              <p>Swap, supply liquidity, borrow, and bridge USDC on Arc Testnet from one verified interface.</p>
               <div className="heroActions">
                 <button className="primaryButton heroConnect" type="button" onClick={() => setPage("app")}>Launch App <ArrowRight size={18} /></button>
-              </div>
-              <div className="heroProofList" aria-label="LumenFi product highlights">
-                {heroProofPoints.map((item) => <span key={item}><CheckCircle2 size={15} />{item}</span>)}
               </div>
             </div>
             <div className="heroTerminal" aria-label="LumenFi market status">
@@ -383,6 +390,9 @@ export default function App() {
                 <a href="https://lumenfi.click" target="_blank" rel="noreferrer"><ExternalLink size={18} /><span>Live app</span><strong>Open</strong></a>
               </div>
             </div>
+          </section>
+          <section className="heroProofList heroProofBar" aria-label="LumenFi product highlights">
+            {heroProofPoints.map((item) => <span key={item}><CheckCircle2 size={15} />{item}</span>)}
           </section>
 
           <section className="sectionBlock">
@@ -461,23 +471,23 @@ export default function App() {
               ))}
             </div>
             <div className="marketModule" aria-label="Selected market action">
-              <div className={activeMarketTab === "swap" ? "modulePane active" : "modulePane"} aria-hidden={activeMarketTab !== "swap"}>
-                <SwapPanel
-                  address={wallet?.address}
-                  provider={wallet?.provider}
-                  walletClient={wallet?.walletClient}
-                  balances={balances}
-                  balancesLoading={balancesLoading}
-                  onConnect={connect}
-                  setStatus={setStatus}
-                />
-              </div>
-              <div className={activeMarketTab === "pool" ? "modulePane active" : "modulePane"} aria-hidden={activeMarketTab !== "pool"}>
-                <PoolLiquidityPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
-              </div>
-              <div className={activeMarketTab === "lending" ? "modulePane active" : "modulePane"} aria-hidden={activeMarketTab !== "lending"}>
-                <LendingPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
-              </div>
+              <Suspense fallback={<ModuleFallback label="Loading market module..." />}>
+                {activeMarketTab === "swap" ? (
+                  <SwapPanel
+                    address={wallet?.address}
+                    provider={wallet?.provider}
+                    walletClient={wallet?.walletClient}
+                    balances={balances}
+                    balancesLoading={balancesLoading}
+                    onConnect={connect}
+                    setStatus={setStatus}
+                  />
+                ) : activeMarketTab === "pool" ? (
+                  <PoolLiquidityPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
+                ) : (
+                  <LendingPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
+                )}
+              </Suspense>
             </div>
           </div>
         </section>
@@ -497,10 +507,13 @@ export default function App() {
           </div>
 
           <div className="bridgeWorkspace single">
-            <BridgePanel address={wallet?.address} provider={wallet?.provider} setStatus={setStatus} />
+            <Suspense fallback={<ModuleFallback label="Loading bridge module..." />}>
+              <BridgePanel address={wallet?.address} provider={wallet?.provider} setStatus={setStatus} />
+            </Suspense>
           </div>
         </section>
       )}
+      </div>
 
       {activeDoc && <div className="docOverlay" role="dialog" aria-modal="true" aria-label={activeDoc === "whitepaper" ? "Whitepaper" : "Submission"}><div className="docModal"><div className="docHeader"><div><p className="eyebrow">LumenFi docs</p><h2>{activeDoc === "whitepaper" ? "Whitepaper" : "Project submission"}</h2></div><button className="iconButton" type="button" onClick={() => setActiveDoc(null)} title="Close document"><X size={18} /></button></div><MarkdownDoc content={activeDoc === "whitepaper" ? whitepaper : projectSubmission} /></div></div>}
 
@@ -536,6 +549,15 @@ function shortHex(value: string) {
 
 function formatAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function ModuleFallback({ label }: { label: string }) {
+  return (
+    <section className="panel" role="status" aria-live="polite">
+      <p className="eyebrow">{label}</p>
+      <i className="skeletonText" />
+    </section>
+  );
 }
 
 

@@ -6589,3 +6589,347 @@ input {
     white-space: normal !important;
   }
 }
+
+/* Final responsive and interaction pass */
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+#page-content {
+  min-width: 0;
+  outline: none;
+}
+
+.skipLink {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 10px 14px;
+  border: 1px solid rgba(94, 234, 212, 0.42);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 760;
+  text-decoration: none;
+  transform: translateY(-160%);
+}
+
+.skipLink:focus {
+  transform: translateY(0);
+}
+
+.mobileNav {
+  display: none;
+}
+
+.heroProofBar {
+  width: min(100% - 48px, 920px) !important;
+  justify-content: center !important;
+  margin: -48px auto 96px !important;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(94, 234, 212, 0.72) !important;
+  outline-offset: 3px !important;
+}
+
+.primaryButton:active,
+.secondaryButton:active,
+.connectButton:active,
+.disconnectButton:active,
+.moduleTabs button:active,
+.mobileNav button:active {
+  transform: scale(0.98) !important;
+}
+
+@media (max-width: 1040px) {
+  .heroBanner {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 28px !important;
+    min-height: auto !important;
+    padding: 56px 0 72px !important;
+  }
+
+  .heroCopy,
+  .heroTerminal,
+  .bridgeWorkspace,
+  .bridgeWorkspace.single,
+  .bridgePanel,
+  .bridgeGuide {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .bridgeWorkspace,
+  .bridgeWorkspace.single,
+  .bridgeHero {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .mobileNav {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    width: min(100% - 48px, 520px);
+    margin: 10px auto 0;
+    padding: 5px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.82);
+  }
+
+  .mobileNav button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 760;
+  }
+
+  .mobileNav button.active {
+    background: rgba(20, 184, 166, 0.16);
+    color: #ccfbf1;
+    box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.16);
+  }
+
+  .connectButton {
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  main {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 0 24px !important;
+  }
+
+  .topbar,
+  .dashboardShell,
+  .sectionBlock,
+  .siteFooter,
+  .heroBanner {
+    width: calc(100% - 28px) !important;
+    max-width: 100% !important;
+    margin-right: auto !important;
+    margin-left: auto !important;
+  }
+
+  .topbar {
+    top: 10px !important;
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    gap: 10px !important;
+    padding: 10px !important;
+  }
+
+  .topbar .brand span,
+  .topbar .navLinks {
+    display: none !important;
+  }
+
+  .headerRight {
+    gap: 8px !important;
+    margin-left: 0 !important;
+  }
+
+  .connectButton {
+    min-width: 0 !important;
+    min-height: 44px !important;
+    padding-inline: 12px !important;
+  }
+
+  .networkBadge {
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+  }
+
+  .networkBadge span {
+    margin: 0 !important;
+  }
+
+  .balanceTrigger {
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+  }
+
+  .balanceTrigger span,
+  .balanceTrigger strong,
+  .walletTools {
+    display: none !important;
+  }
+
+  .disconnectButton {
+    min-width: 0 !important;
+    min-height: 44px !important;
+    padding-inline: 10px !important;
+    font-size: 12px !important;
+  }
+
+  .mobileNav {
+    width: calc(100% - 28px);
+  }
+
+  .heroBanner {
+    gap: 24px !important;
+    padding: 44px 0 32px !important;
+  }
+
+  .heroCopy {
+    gap: 18px !important;
+  }
+
+  .heroCopy h1 {
+    max-width: 12ch !important;
+    font-size: clamp(40px, 12vw, 54px) !important;
+    line-height: 1.02 !important;
+    text-wrap: balance;
+  }
+
+  .heroCopy > p:not(.liveBadge) {
+    max-width: 34ch !important;
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+    text-wrap: pretty;
+  }
+
+  .heroTerminal {
+    padding: 16px !important;
+    border-radius: 18px !important;
+  }
+
+  .terminalHeader,
+  .panelHeader,
+  .dashboardHeader {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .snapshotGrid,
+  .heroStats,
+  .bridgeNetworkGrid,
+  .bridgeRouteGrid,
+  .bridgeHeroStats {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .heroProofBar {
+    width: calc(100% - 28px) !important;
+    justify-content: flex-start !important;
+    margin: 0 auto 72px !important;
+  }
+
+  .heroProofList span {
+    min-height: 44px !important;
+    white-space: normal !important;
+  }
+
+  .sectionHeader {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    text-align: left !important;
+  }
+
+  .bridgePage {
+    margin-top: 18px !important;
+    padding: 16px !important;
+    border-radius: 20px !important;
+  }
+
+  .bridgeNetworkGrid {
+    justify-items: stretch !important;
+  }
+
+  .bridgeReverseButton {
+    width: 44px !important;
+    height: 44px !important;
+    justify-self: center !important;
+    transform: rotate(90deg);
+  }
+
+  .bridgeReverseButton:hover {
+    transform: rotate(90deg) translateY(-1px) !important;
+  }
+
+  .moduleTabs {
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: 6px !important;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: none;
+  }
+
+  .moduleTabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .moduleTabs button {
+    flex: 1 0 max-content;
+    min-height: 44px !important;
+    padding-inline: 14px;
+    scroll-snap-align: start;
+  }
+
+  .appPage .metricDeck,
+  .marketModule .lendingCleanOverview,
+  .marketModule .lendingCleanActions,
+  .lendingCleanRates,
+  .lendingCleanPositions,
+  .routeMeta {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .marketModule,
+  .marketModule > .panel,
+  .marketModule > .lendingCleanPanel {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .systemToast {
+    right: 14px !important;
+    bottom: 14px !important;
+    width: calc(100% - 28px) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -2,13 +2,15 @@
 
 export const ARC_TESTNET_CHAIN_ID = 5042002;
 export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
+const configuredFallbackRpcs = (import.meta.env.VITE_ARC_FALLBACK_RPCS || "").split(",").map((url) => url.trim()).filter(Boolean);
 export const ARC_TESTNET_RPCS = [
+  ...configuredFallbackRpcs,
+  "https://rpc.drpc.testnet.arc.network",
   ARC_TESTNET_RPC,
   "https://rpc.blockdaemon.testnet.arc.network",
-  "https://rpc.drpc.testnet.arc.network",
   "https://rpc.quicknode.testnet.arc.network",
-  ...(import.meta.env.VITE_ARC_FALLBACK_RPCS || "").split(",").map((url) => url.trim()).filter(Boolean)
 ].filter((url, index, urls) => urls.indexOf(url) === index);
+const ARC_BROWSER_READ_RPCS = ARC_TESTNET_RPCS.filter((url) => url !== ARC_TESTNET_RPC);
 
 export const arcTestnet = defineChain({
   id: ARC_TESTNET_CHAIN_ID,
@@ -35,8 +37,8 @@ export const arcTestnet = defineChain({
 export const arcPublicClient = createPublicClient({
   chain: arcTestnet,
   transport: fallback(
-    ARC_TESTNET_RPCS.map((url) => http(url, { timeout: 2_000, retryCount: 0 })),
-    { rank: true, retryCount: 0 }
+    ARC_BROWSER_READ_RPCS.map((url) => http(url, { timeout: 2_000, retryCount: 0 })),
+    { rank: false, retryCount: 0 }
   )
 });
 

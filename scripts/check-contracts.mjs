@@ -1,7 +1,36 @@
 import { createPublicClient, defineChain, http, parseAbi, formatUnits } from "viem";
 
-const arcTestnet = defineChain({ id: 5042002, name: "Arc Testnet", nativeCurrency: { decimals: 18, name: "USDC", symbol: "USDC" }, rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } }, testnet: true });
-const client = createPublicClient({ chain: arcTestnet, transport: http("https://rpc.testnet.arc.network") });
+const rpcUrls = [
+  "https://rpc.testnet.arc.network",
+  "https://rpc.blockdaemon.testnet.arc.network",
+  "https://rpc.drpc.testnet.arc.network",
+  "https://rpc.quicknode.testnet.arc.network"
+];
+const arcTestnet = defineChain({ id: 5042002, name: "Arc Testnet", nativeCurrency: { decimals: 18, name: "USDC", symbol: "USDC" }, rpcUrls: { default: { http: rpcUrls } }, testnet: true });
+const rpcClients = rpcUrls.map((url) => createPublicClient({ chain: arcTestnet, transport: http(url, { timeout: 5_000, retryCount: 0 }) }));
+let nextRpc = 0;
+
+async function runRpc(method, args) {
+  const start = nextRpc;
+  nextRpc = (nextRpc + 1) % rpcClients.length;
+  let lastError;
+
+  for (let attempt = 0; attempt < rpcClients.length; attempt += 1) {
+    const rpcClient = rpcClients[(start + attempt) % rpcClients.length];
+    try {
+      return await rpcClient[method](args);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
+const client = {
+  getBytecode: (args) => runRpc("getBytecode", args),
+  readContract: (args) => runRpc("readContract", args)
+};
 const lending = "0x474552ce815a68443bdfcafd089cdb345791d204";
 const swap = "0xfd34e43021f20f585db8f078471c7107d8d1da30";
 const usdc = "0x3600000000000000000000000000000000000000";

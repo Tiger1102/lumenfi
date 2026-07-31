@@ -2,7 +2,7 @@ import { ArrowLeftRight, Cable, CheckCircle2, Layers3, Route } from "lucide-reac
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { estimateBridge, requestBridge, requestUnifiedBalances } from "../lib/circle";
-import { arcPublicClient, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, type EIP1193Provider } from "../lib/arc";
+import { arcPublicClient, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, type EIP1193Provider } from "../lib/arc";
 import { PanelNotice } from "./PanelNotice";
 
 type BridgePanelProps = {
@@ -41,12 +41,16 @@ export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) 
       return;
     }
 
-    const balance = await arcPublicClient.readContract({
-      address: getTokenAddress("USDC"),
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [address]
-    });
+    const balance = await readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: getTokenAddress("USDC"),
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [address]
+        }),
+      "Bridge USDC balance"
+    );
     setArcUsdcBalance(`${formatTokenAmount(balance, ARC_TOKENS.USDC)} USDC`);
   }
 

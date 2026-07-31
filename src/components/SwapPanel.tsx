@@ -51,6 +51,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
 
   useEffect(() => {
     let cancelled = false;
+    let timer: number | undefined;
     setPreviewError("");
 
     if (!supportsPoolSwap(from, to) || !swapPoolAddress) {
@@ -62,28 +63,31 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
     }
 
     setPreviewLoading(true);
-    getPoolSwapPreview(address, from, to, amount)
-      .then((nextPreview) => {
-        if (!cancelled) {
-          setPreview(nextPreview ? nextPreview.outputText : "");
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setPreview("");
-          setPreviewError(error instanceof Error ? error.message : "Swap quote failed.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPreviewLoading(false);
-        }
-      });
+    timer = window.setTimeout(() => {
+      getPoolSwapPreview(undefined, from, to, amount)
+        .then((nextPreview) => {
+          if (!cancelled) {
+            setPreview(nextPreview ? nextPreview.outputText : "");
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            setPreview("");
+            setPreviewError(error instanceof Error ? error.message : "Swap quote failed.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setPreviewLoading(false);
+          }
+        });
+    }, 300);
 
     return () => {
       cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [address, from, to, amount]);
+  }, [from, to, amount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,7 +210,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           <h2>Swap</h2>
         </div>
       </div>
-      <PanelNotice status={notice?.status === "error" ? undefined : notice?.status} message={notice?.status === "error" ? undefined : notice?.message} txHash={notice?.txHash} />
+      <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
 
       <div className="swapPanelBody">
         <div className="tokenAmountBox">
@@ -232,11 +236,11 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           </div>
           <div className="tokenAmountMain">
             <TokenSelect value={to} onChange={setTo} tokens={PUBLIC_SWAP_TOKENS} />
-            <strong>{previewLoading || !preview ? <i className="skeletonText" /> : `${preview} ${to}`}</strong>
+            <strong>{previewLoading ? <i className="skeletonText" /> : preview ? `${preview} ${to}` : "--"}</strong>
             <button type="button" disabled>OUT</button>
           </div>
         </div>
-        {previewError && <span className="srOnly">{previewError}</span>}
+        {previewError && <div className="notice" role="alert">Pool quote is temporarily unavailable. Try again in a moment.</div>}
 
         <div className="slippagePanel" aria-label="Swap quote controls">
           <div className="slippageHeader">
@@ -256,7 +260,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           </div>
           <div className="minimumReceived">
             <span>MINIMUM RECEIVED</span>
-            <strong>{previewLoading || !minimumReceived ? <i className="skeletonText small" /> : `${minimumReceived} ${to}`}</strong>
+            <strong>{previewLoading ? <i className="skeletonText small" /> : minimumReceived ? `${minimumReceived} ${to}` : "--"}</strong>
           </div>
           {slippageValue > 1 && <p className="slippageWarning">Higher slippage may accept a worse execution price.</p>}
         </div>
