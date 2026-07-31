@@ -101,6 +101,24 @@ export type LendingTokenPosition = {
 };
 
 const lendingSnapshotCache = new Map<string, { expiresAt: number; value: Awaited<ReturnType<typeof loadLendingSnapshot>> }>();
+const lendingSnapshotRequests = new Map<string, Promise<Awaited<ReturnType<typeof loadLendingSnapshot>>>>();
+const LENDING_READ_TIMEOUT_MS = 6_000;
+
+async function withLendingReadTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = globalThis.setTimeout(
+      () => reject(new Error(`${label} timed out. Arc RPC may be busy.`)),
+      LENDING_READ_TIMEOUT_MS
+    );
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+  }
+}
 
 async function loadLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
   if (!lendingPoolAddress) return null;
@@ -108,10 +126,18 @@ async function loadLendingSnapshot(address: Address, tokenSymbol: TokenSymbol) {
   const readLending = <T>(functionName: "getAccountData" | "collateralOf" | "debtOf", args: readonly Address[]) =>
     readWithRetry(() => arcPublicClient.readContract({ address: lendingPoolAddress, abi: lendingPoolAbi, functionName, args } as never) as Promise<T>, `${tokenSymbol} ${functionName}`);
 
-  const accountData = await readLending<readonly [bigint, bigint, bigint, bigint]>("getAccountData", [address]);
-  const collateral = await readLending<bigint>("collateralOf", [address, tokenAddress]);
-  const debt = await readLending<bigint>("debtOf", [address, tokenAddress]);
-  const walletBalance = await readWithRetry(() => arcPublicClient.readContract({ address: tokenAddress, abi: erc20Abi, functionName: "balanceOf", args: [address] }), `${tokenSymbol} wallet balance`);
+  const [accountData, collateral, debt, walletBalance] = await withLendingReadTimeout(
+    Promise.all([
+      readLending<readonly [bigint, bigint, bigint, bigint]>("getAccountData", [address]),
+      readLending<bigint>("collateralOf", [address, tokenAddress]),
+      readLending<bigint>("debtOf", [address, tokenAddress]),
+      readWithRetry(
+        () => arcPublicClient.readContract({ address: tokenAddress, abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+        `${tokenSymbol} wallet balance`
+      )
+    ]),
+    `${tokenSymbol} lending snapshot`
+  );
   return { accountData, position: { collateral, debt, totalSupplied: 0n, totalBorrowed: 0n, walletBalance } satisfies LendingTokenPosition };
 }
 
@@ -119,23 +145,40 @@ export async function getLendingSnapshot(address: Address, tokenSymbol: TokenSym
   const key = `${address.toLowerCase()}:${tokenSymbol}`;
   const cached = lendingSnapshotCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
-  const value = await loadLendingSnapshot(address, tokenSymbol);
-  lendingSnapshotCache.set(key, { value, expiresAt: Date.now() + 15_000 });
-  return value;
+  const pending = lendingSnapshotRequests.get(key);
+  if (pending) return pending;
+
+  const request = loadLendingSnapshot(address, tokenSymbol);
+  lendingSnapshotRequests.set(key, request);
+
+  try {
+    const value = await request;
+    lendingSnapshotCache.set(key, { value, expiresAt: Date.now() + 15_000 });
+    return value;
+  } finally {
+    if (lendingSnapshotRequests.get(key) === request) {
+      lendingSnapshotRequests.delete(key);
+    }
+  }
 }
 
 export function clearLendingSnapshotCache(address: Address, tokenSymbol: TokenSymbol) {
-  lendingSnapshotCache.delete(`${address.toLowerCase()}:${tokenSymbol}`);
+  const key = `${address.toLowerCase()}:${tokenSymbol}`;
+  lendingSnapshotCache.delete(key);
+  lendingSnapshotRequests.delete(key);
 }
 
 export async function getLendingAllowance(owner: Address, tokenSymbol: TokenSymbol) {
   if (!lendingPoolAddress) return 0n;
-  return readWithRetry(() => arcPublicClient.readContract({
-    address: getTokenAddress(tokenSymbol),
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: [owner, lendingPoolAddress]
-  }), `${tokenSymbol} lending allowance`);
+  return withLendingReadTimeout(
+    readWithRetry(() => arcPublicClient.readContract({
+      address: getTokenAddress(tokenSymbol),
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [owner, lendingPoolAddress]
+    }), `${tokenSymbol} lending allowance`),
+    `${tokenSymbol} lending allowance`
+  );
 }
 
 export async function approveLending(walletClient: WalletClient, owner: Address, tokenSymbol: TokenSymbol, amountText: string) {

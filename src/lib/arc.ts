@@ -2,7 +2,10 @@
 
 export const ARC_TESTNET_CHAIN_ID = 5042002;
 export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
-const configuredFallbackRpcs = (import.meta.env.VITE_ARC_FALLBACK_RPCS || "").split(",").map((url) => url.trim()).filter(Boolean);
+const configuredFallbackRpcs = (import.meta.env.VITE_ARC_FALLBACK_RPCS || "")
+  .split(",")
+  .map((url) => url.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
 export const ARC_TESTNET_RPCS = [
   ...configuredFallbackRpcs,
   "https://rpc.drpc.testnet.arc.network",

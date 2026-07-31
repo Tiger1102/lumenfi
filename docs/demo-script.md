@@ -18,7 +18,7 @@
 - The stablecoin pool has active reserves and a working quote.
 - LendingPool lists USDC and EURC and enforces LTV / health checks.
 - Repo is public, licensed, and includes contract tests.
-- The roadmap points toward an Arc Blueprints-powered assistant layer, but current live features are clearly separated from future work.
+- The roadmap follows Arc's ERC-8004 identity and ERC-8183 USDC job standards, while current live features remain clearly separated from future agent work.
 
 ## Submission links
 

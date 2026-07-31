@@ -4,11 +4,13 @@ type PanelNoticeProps = {
   status?: "loading" | "success" | "error";
   message?: string;
   txHash?: string;
+  actionLabel?: string;
+  onAction?: () => void;
 };
 
 const ARC_EXPLORER_TX_URL = "https://testnet.arcscan.app/tx/";
 
-export function PanelNotice({ status, message, txHash }: PanelNoticeProps) {
+export function PanelNotice({ status, message, txHash, actionLabel, onAction }: PanelNoticeProps) {
   if (!message || !status) {
     return null;
   }
@@ -31,6 +33,11 @@ export function PanelNotice({ status, message, txHash }: PanelNoticeProps) {
           View tx {txHash.slice(0, 8)}...{txHash.slice(-6)}
           <ExternalLink size={13} />
         </a>
+      )}
+      {actionLabel && onAction && (
+        <button className="panelNoticeAction" type="button" onClick={onAction}>
+          {actionLabel}
+        </button>
       )}
     </div>
   );

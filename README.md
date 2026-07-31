@@ -8,7 +8,7 @@ LumenFi is a premium stablecoin DeFi workspace for Arc Testnet with four product
 - USDC bridge preparation and unified balance hooks through Circle App Kit.
 - A Solidity lending pool for USDC/EURC collateral and borrowing.
 
-The current UI is built as an overview-first DeFi dashboard with professional dark-mode styling, public contract links, module-level receipts, and a roadmap toward an Arc Blueprints-powered AI Agent.
+The current UI is built as an overview-first DeFi dashboard with professional dark-mode styling, public contract links, module-level receipts, and an Arc-native agent roadmap based on ERC-8004 identity and ERC-8183 USDC job settlement.
 
 ## Why Arc
 
@@ -19,7 +19,7 @@ The project highlights four Arc-relevant ideas:
 - Stablecoin-first UX for swaps, LP positions, and credit markets.
 - USDC-denominated onboarding and transaction context.
 - Testnet contracts that make Arc balances actionable from one interface.
-- A path toward agent-assisted financial workflows built on top of Arc-native liquidity and account data.
+- A staged path from read-only risk analysis to ERC-8004 agent identity, event monitoring, ERC-8183 USDC jobs, and tightly guarded execution.
 
 ## Judge Quick Review
 

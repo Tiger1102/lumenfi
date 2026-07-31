@@ -45,7 +45,7 @@ const marketRows = [
 
 const protocolLinks = [
   ["Arc Network", "Stablecoin-native EVM testnet used by LumenFi.", "https://arc.io"],
-  ["Arc Docs", "Network references, RPC details, and builder resources.", "https://docs.arc.network"],
+  ["Arc Docs", "Network references, agent standards, and builder resources.", "https://docs.arc.io/build"],
   ["Arc Explorer", "Inspect transactions, contracts, and testnet state.", "https://testnet.arcscan.app"],
   ["Circle Faucet", "Get Arc Testnet assets for wallet testing.", "https://faucet.circle.com"]
 ];
@@ -443,8 +443,18 @@ export default function App() {
           </section>
 
           <section id="roadmap" className="sectionBlock roadmapPage" aria-label="LumenFi roadmap">
-            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From testnet review to production markets.</h2><p>Live modules stay visible, while upcoming work is scoped around risk controls, liquidity depth, analytics, and the AI assistant layer.</p></div>
-            <div className="roadmapGrid">{roadmapItems.map((item) => <article className="roadmapCard" key={item.phase}><span>{item.phase}</span><em>{item.status}</em><h3>{item.title}</h3><p>{item.copy}</p></article>)}</div>
+            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>The agent roadmap follows Arc's ERC-8004 identity and ERC-8183 USDC job settlement flows, with read-only analysis before guarded execution.</p></div>
+            <div className="roadmapGrid">
+              {roadmapItems.map((item) => (
+                <article className="roadmapCard" key={item.phase}>
+                  <span>{item.phase}</span>
+                  <em>{item.status}</em>
+                  <h3>{item.title}</h3>
+                  <p>{item.copy}</p>
+                  {item.href && <a className="roadmapSource" href={item.href} target="_blank" rel="noreferrer">{item.linkLabel}<ExternalLink size={14} /></a>}
+                </article>
+              ))}
+            </div>
           </section>
         </>
       ) : page === "app" ? (
@@ -527,7 +537,7 @@ export default function App() {
               <p>Resources</p>
               <button type="button" onClick={() => openDoc("whitepaper")}>Whitepaper</button>
               <button type="button" onClick={() => openDoc("submission")}>Submission</button>
-              <a href="https://docs.arc.network" target="_blank" rel="noreferrer">Arc Docs</a>
+              <a href="https://docs.arc.io/build" target="_blank" rel="noreferrer">Arc Docs</a>
               <a href="https://testnet.arcscan.app" target="_blank" rel="noreferrer">Arc Explorer</a>
             </nav>
             <nav className="footerColumn footerConnect" aria-label="Connect links">

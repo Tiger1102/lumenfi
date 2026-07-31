@@ -1,5 +1,5 @@
 import { Banknote, HandCoins } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { formatUnits } from "viem";
 import { approveLending, clearLendingSnapshotCache, getLendingAllowance, getLendingSnapshot, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
@@ -62,31 +62,47 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const [dataReady, setDataReady] = useState(false);
   const [allowance, setAllowance] = useState(0n);
   const [allowanceLoading, setAllowanceLoading] = useState(false);
+  const [readError, setReadError] = useState(false);
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
+  const refreshRequestRef = useRef(0);
 
-  async function refreshAccountData() {
+  async function refreshAccountData(force = false) {
+    const requestId = ++refreshRequestRef.current;
+
     if (!address || !lendingPoolAddress) {
       setAccountData(null);
       setTokenPosition(null);
       setDataReady(true);
+      setLoading(false);
+      setReadError(false);
       return;
     }
 
+    if (force) clearLendingSnapshotCache(address, token);
     setLoading(true);
     setDataReady(false);
+    setReadError(false);
 
     try {
       const snapshot = await getLendingSnapshot(address, token);
+      if (requestId !== refreshRequestRef.current) return;
       setAccountData(snapshot?.accountData ?? null);
       setTokenPosition(snapshot?.position ?? null);
-      setDataReady(true);
+      setNotice((current) => current?.status === "error" && current.message.startsWith("Live lending data") ? undefined : current);
     } catch (error) {
-      const message = error instanceof Error ? `Lending read failed: ${error.message}` : "Lending read failed.";
+      if (requestId !== refreshRequestRef.current) return;
+      const detail = error instanceof Error ? error.message : "Arc RPC did not return lending data.";
+      const message = `Live lending data is unavailable. Showing zero values. ${detail}`;
+      setAccountData(null);
+      setTokenPosition(null);
+      setReadError(true);
       setNotice({ status: "error", message });
       setStatus(message, "error");
-      throw error;
     } finally {
-      setLoading(false);
+      if (requestId === refreshRequestRef.current) {
+        setDataReady(true);
+        setLoading(false);
+      }
     }
   }
 
@@ -136,13 +152,29 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
 
   useEffect(() => {
     refreshAccountData().catch(() => undefined);
+    return () => {
+      refreshRequestRef.current += 1;
+    };
   }, [address, token]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!address || (actionMode !== "deposit" && actionMode !== "repay")) { setAllowance(0n); return; }
+    if (!address || (actionMode !== "deposit" && actionMode !== "repay")) {
+      setAllowance(0n);
+      setAllowanceLoading(false);
+      return;
+    }
     setAllowanceLoading(true);
-    getLendingAllowance(address, token).then((value) => { if (!cancelled) setAllowance(value); }).catch((error) => setStatus(error instanceof Error ? error.message : "Allowance read failed.", "error")).finally(() => { if (!cancelled) setAllowanceLoading(false); });
+    getLendingAllowance(address, token)
+      .then((value) => {
+        if (!cancelled) setAllowance(value);
+      })
+      .catch((error) => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "Allowance read failed.", "error");
+      })
+      .finally(() => {
+        if (!cancelled) setAllowanceLoading(false);
+      });
     return () => { cancelled = true; };
   }, [address, token, actionMode]);
 
@@ -199,6 +231,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const canExecute =
     Boolean(address && walletClient && lendingPoolAddress) &&
     dataReady &&
+    !readError &&
     !loading &&
     !allowanceLoading &&
     parsedAmount > 0n &&
@@ -207,7 +240,9 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   const needsApproval = Boolean((actionMode === "deposit" || actionMode === "repay") && parsedAmount > allowance);
   const ctaLabel = !address
     ? "Connect Wallet"
-    : loading || allowanceLoading
+    : readError
+      ? "Market Data Unavailable"
+      : loading || allowanceLoading
       ? "Loading Network Data..."
       : parsedAmount === 0n
         ? "Enter Amount"
@@ -230,7 +265,13 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
         </div>
         <HandCoins size={20} />
       </div>
-      <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
+      <PanelNotice
+        status={notice?.status}
+        message={notice?.message}
+        txHash={notice?.txHash}
+        actionLabel={readError ? "Retry" : undefined}
+        onAction={readError ? () => refreshAccountData(true) : undefined}
+      />
 
       {!lendingPoolAddress && <div className="notice">Deploy LendingPool and set VITE_LENDING_POOL_ADDRESS.</div>}
 

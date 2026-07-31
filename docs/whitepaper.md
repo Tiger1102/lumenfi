@@ -125,7 +125,13 @@ Phase 04 - Lending market and risk controls: live. LumenFi includes USDC/EURC de
 
 Phase 05 - Market depth and analytics: live. LumenFi now shows live pool depth, LP supply, reserve analytics, pool rate, swap fee visibility, route estimates, minimum received, and price-impact context for USDC/EURC market actions.
 
-Phase 06 - AI Agent (Arc Blueprints): soon. LumenFi plans to develop an Arc Blueprints-powered assistant for real-time portfolio insights, risk summaries, guided swaps, lending checks, optimal bridge preparation, passive asset management, and read-only yield recommendations. The next phase would enable limited-permission execution with USDC gas and explicit user confirmation.
+Phase 06 - Agent identity (ERC-8004): next. Register LumenFi agent metadata on Arc, expose the agent ID and owner, and surface reputation and validation records. Portfolio and risk analysis remains read-only.
+
+Phase 07 - Risk copilot and event monitoring: planned. Monitor pool and lending events, explain changes in account health and slippage, and draft swap, lending, or bridge actions without signing transactions.
+
+Phase 08 - USDC agent jobs (ERC-8183): planned. Create jobs, fund USDC escrow, submit deliverable hashes, require evaluator approval, and settle completed research or automation tasks.
+
+Phase 09 - Guarded agent execution: research. Evaluate smart wallets and session keys with action allowlists, USDC limits, expiry, revocation, simulation, and explicit user confirmation. LumenFi will not provide unrestricted agent custody or execution.
 
 ## Current Status
 
