@@ -1,5 +1,6 @@
 node_modules
 dist
+.ui-audit/
 artifacts
 cache
 coverage

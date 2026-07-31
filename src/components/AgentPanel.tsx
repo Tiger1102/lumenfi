@@ -98,7 +98,7 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
         <div className="agentIdentity">
           <div className="agentOrb" aria-hidden="true"><Bot size={24} /></div>
           <div>
-            <p className="eyebrow">Arc blueprint · read-only beta</p>
+            <p className="eyebrow">Arc blueprint, read-only beta</p>
             <h2>LumenFi Agent</h2>
           </div>
           <span className="agentOnline"><i />Onchain reads</span>

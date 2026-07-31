@@ -36,9 +36,9 @@ function pageFromPath(pathname: string): Page {
 }
 
 const featureCards = [
-  { icon: Landmark, title: "Money Market", copy: "Supply USDC or EURC, borrow against collateral, and monitor account health from a focused lending workspace.", accent: "cyan" },
-  { icon: ArrowRightLeft, title: "Liquidity Pool", copy: "Swap USDC/EURC, provide liquidity, track LP shares, and review pool ownership in one operator view.", accent: "pink" },
-  { icon: Layers3, title: "USDC Bridge", copy: "Prepare USDC bridge flows into Arc with clear source-chain, destination-chain, and balance context.", accent: "violet" }
+  { icon: Landmark, title: "Borrow against stablecoins", copy: "Supply USDC or EURC, borrow against collateral, and monitor account health from a focused lending workspace." },
+  { icon: ArrowRightLeft, title: "Manage USDC/EURC liquidity", copy: "Swap stablecoins, provide liquidity, track LP shares, and review pool ownership in one operator view." },
+  { icon: Layers3, title: "Prepare cross-chain USDC", copy: "Set up bridge flows into Arc with clear source, destination, recipient, and balance context." }
 ];
 
 const marketRows = [
@@ -62,17 +62,17 @@ const contractRows = [
 ];
 
 const marketMetrics = [
-  ["Pool fee", "0.30%", "Accrues to reserves"],
+  ["Swap fee", "0.30%", "Accrues to pool reserves"],
   ["LP access", "Open", "USDC + EURC"],
-  ["Pair", "USDC/EURC", "Live pool route"],
-  ["Tx visibility", "Inline", "Module-level receipts"]
+  ["Active pair", "USDC/EURC", "Arc Testnet pool"],
+  ["Receipts", "Inline", "Explorer-ready"]
 ];
 
 const heroProofPoints = [
-  "Production hosted",
-  "Inline transaction tracking",
-  "Permissionless liquidity",
-  "Arc-native USDC flows"
+  "Public contracts",
+  "Inline transaction receipts",
+  "Permissionless LP access",
+  "Arc Testnet"
 ];
 
 const workspaceTrustItems = [
@@ -98,6 +98,7 @@ export default function App() {
   const [balancesLoading, setBalancesLoading] = useState(false);
   const [activeMarketTab, setActiveMarketTab] = useState<MarketTab>("swap");
   const balancePopoverRef = useRef<HTMLDivElement>(null);
+  const docModalRef = useRef<HTMLDivElement>(null);
 
   const totalBalance = useMemo(() => {
     const usdc = Number(formatTokenAmount(balances.USDC ?? 0n, ARC_TOKENS.USDC));
@@ -154,6 +155,7 @@ export default function App() {
       const method = options.replace ? "replaceState" : "pushState";
       window.history[method]({ page: nextPage }, "", nextPath);
     }
+    window.setTimeout(() => document.getElementById("page-content")?.focus({ preventScroll: true }), 0);
   }
 
   function openRoadmap() {
@@ -278,6 +280,7 @@ export default function App() {
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setBalancePopoverOpen(false);
+        setActiveDoc(null);
       }
     }
 
@@ -288,6 +291,11 @@ export default function App() {
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeDoc) return;
+    window.requestAnimationFrame(() => docModalRef.current?.focus());
+  }, [activeDoc]);
 
   return (
     <main>
@@ -385,7 +393,7 @@ export default function App() {
             <div className="heroCopy">
               <p className="liveBadge"><span /> Live on Arc Testnet</p>
               <h1>Stablecoin markets, built for Arc.</h1>
-              <p>Swap, supply liquidity, borrow, and bridge USDC on Arc Testnet from one verified interface.</p>
+              <p>Swap, supply liquidity, borrow, and prepare USDC routes from one Arc Testnet workspace.</p>
               <div className="heroActions">
                 <button className="primaryButton heroConnect" type="button" onClick={() => setPage("app")}>Launch App <ArrowRight size={18} /></button>
               </div>
@@ -397,11 +405,11 @@ export default function App() {
                 <div><span>Liquidity route</span><strong>LumenFi pool</strong></div>
                 <div><span>Credit market</span><strong>Deployed</strong></div>
                 <div><span>Gas model</span><strong>USDC</strong></div>
-                <div><span>Deployment</span><strong>Cloudflare Hosted (Production)</strong></div>
-                <div><span>Execution UX</span><strong>Inline tx receipts</strong></div>
+                <div><span>Deployment</span><strong>Cloudflare Pages</strong></div>
+                <div><span>Transaction feedback</span><strong>Inline receipts</strong></div>
               </div>
               <div className="heroStats" aria-label="Project status">
-                <div><Zap size={18} /><span>Sub-second UX</span><strong>Testnet</strong></div>
+                <div><Zap size={18} /><span>Gas token</span><strong>USDC</strong></div>
                 <div><ShieldCheck size={18} /><span>Chain ID</span><strong>5042002</strong></div>
                 <a href="https://lumenfi.click" target="_blank" rel="noreferrer"><ExternalLink size={18} /><span>Live app</span><strong>Open</strong></a>
               </div>
@@ -412,9 +420,9 @@ export default function App() {
           </section>
 
           <section className="sectionBlock">
-            <div className="sectionHeader"><p className="eyebrow">Product stack</p><h2>A focused DeFi market layer for Arc.</h2><p>Markets, liquidity, credit, and bridge controls are grouped into a single operator view.</p></div>
+            <div className="sectionHeader"><p className="eyebrow">Product</p><h2>One workspace for Arc stablecoin markets.</h2><p>Liquidity, credit, bridge preparation, and account guidance stay close to the action that needs them.</p></div>
             <div className="featureGrid">
-              {featureCards.map((card) => { const Icon = card.icon; return <article className={`featureCard ${card.accent}`} key={card.title}><div className="featureIcon"><Icon size={22} /></div><h3>{card.title}</h3><p>{card.copy}</p></article>; })}
+              {featureCards.map((card) => { const Icon = card.icon; return <article className="featureCard" key={card.title}><div className="featureIcon"><Icon size={22} /></div><h3>{card.title}</h3><p>{card.copy}</p></article>; })}
             </div>
           </section>
 
@@ -459,7 +467,7 @@ export default function App() {
           </section>
 
           <section id="roadmap" className="sectionBlock roadmapPage" aria-label="LumenFi roadmap">
-            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>Phase 06 now ships a read-only Arc account assistant. Identity, USDC job settlement, and limited-permission execution remain later, separately gated phases.</p></div>
+            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>The read-only account assistant is live in beta. Identity, task settlement, and permissioned execution remain separately gated milestones.</p></div>
             <div className="roadmapGrid">
               {roadmapItems.map((item) => (
                 <article className="roadmapCard" key={item.phase}>
@@ -476,8 +484,8 @@ export default function App() {
         <section className="dashboardShell appPage">
           <div className="dashboardHeader">
             <div>
-              <p className="eyebrow">LumenFi Market Dashboard</p>
-              <h2>Arc-native stablecoin markets.</h2>
+              <p className="eyebrow">Markets</p>
+              <h2>Arc stablecoin workspace</h2>
             </div>
           </div>
           <div className="metricDeck" aria-label="LumenFi key metrics">
@@ -541,8 +549,8 @@ export default function App() {
         <section className="dashboardShell agentPage">
           <div className="dashboardHeader agentPageHeader">
             <div>
-              <p className="eyebrow">AI Agent · Roadmap phase 06</p>
-              <h2>Account intelligence, grounded in Arc state.</h2>
+              <p className="eyebrow">Read-only Arc intelligence</p>
+              <h2>Account guidance grounded in contract state</h2>
               <p>Ask for portfolio, lending, yield, swap, or bridge guidance. Every response stays read-only and links back to a user-controlled market action.</p>
             </div>
             <a href="https://docs.arc.io/build/agentic-economy" target="_blank" rel="noreferrer">Arc agentic economy <ExternalLink size={15} /></a>
@@ -560,13 +568,13 @@ export default function App() {
       )}
       </div>
 
-      {activeDoc && <div className="docOverlay" role="dialog" aria-modal="true" aria-label={activeDoc === "whitepaper" ? "Whitepaper" : "Submission"}><div className="docModal"><div className="docHeader"><div><p className="eyebrow">LumenFi docs</p><h2>{activeDoc === "whitepaper" ? "Whitepaper" : "Project submission"}</h2></div><button className="iconButton" type="button" onClick={() => setActiveDoc(null)} title="Close document"><X size={18} /></button></div><MarkdownDoc content={activeDoc === "whitepaper" ? whitepaper : projectSubmission} /></div></div>}
+      {activeDoc && <div className="docOverlay" role="dialog" aria-modal="true" aria-label={activeDoc === "whitepaper" ? "Whitepaper" : "Submission"}><div className="docModal" ref={docModalRef} tabIndex={-1}><div className="docHeader"><div><p className="eyebrow">LumenFi docs</p><h2>{activeDoc === "whitepaper" ? "Whitepaper" : "Project submission"}</h2></div><button className="iconButton" type="button" onClick={() => setActiveDoc(null)} title="Close document" aria-label="Close document"><X size={18} /></button></div><MarkdownDoc content={activeDoc === "whitepaper" ? whitepaper : projectSubmission} /></div></div>}
 
       {status.message && <div className={`systemToast ${status.state}`} role="status"><span>{status.message}</span>{status.txHash && <a href={`https://testnet.arcscan.app/tx/${status.txHash}`} target="_blank" rel="noreferrer">View transaction</a>}<button type="button" onClick={() => setStatusState({ state: "idle", message: "" })}>Close</button></div>}
 
       <footer className="siteFooter">
         <div className="footerTop">
-          <div className="footerBrand"><div><img src="/lumenfi-logo.svg" alt="" /><strong>LumenFi</strong></div><p>Premium DeFi workspace for Arc stablecoin liquidity, credit markets, LP positions, and USDC onboarding.</p></div>
+          <div className="footerBrand"><div><img src="/lumenfi-logo.svg" alt="" /><strong>LumenFi</strong></div><p>Arc Testnet workspace for stablecoin liquidity, credit markets, LP positions, and USDC onboarding.</p></div>
           <div className="footerColumns">
             <nav className="footerColumn" aria-label="Resources links">
               <p>Resources</p>
