@@ -3,8 +3,6 @@ type RoadmapItem = {
   title: string;
   status: "Live" | "Beta" | "Next" | "Planned" | "Research";
   copy: string;
-  href?: string;
-  linkLabel?: string;
 };
 
 export const roadmapItems: RoadmapItem[] = [
@@ -42,32 +40,24 @@ export const roadmapItems: RoadmapItem[] = [
     phase: "06",
     title: "AI Agent (Arc Blueprints)",
     status: "Beta",
-    copy: "Live read-only assistant for real-time portfolio insights, lending risk summaries, guided swaps, bridge preparation, passive asset reviews, and yield recommendations grounded in Arc contract state.",
-    href: "https://docs.arc.io/build/agentic-economy",
-    linkLabel: "Arc agentic economy"
+    copy: "Live read-only assistant for real-time portfolio insights, lending risk summaries, guided swaps, bridge preparation, passive asset reviews, and yield recommendations grounded in Arc contract state."
   },
   {
     phase: "07",
-    title: "Agent identity (ERC-8004)",
+    title: "Agent identity and trust",
     status: "Next",
-    copy: "Register LumenFi agent metadata on Arc, expose its agent ID and owner, and read reputation and validation records while keeping all financial guidance read-only.",
-    href: "https://docs.arc.io/arc/tutorials/register-your-first-ai-agent",
-    linkLabel: "ERC-8004 quickstart"
+    copy: "Register LumenFi agent metadata on Arc, expose its agent ID and owner, and read reputation and validation records while keeping all financial guidance read-only."
   },
   {
     phase: "08",
-    title: "USDC agent jobs (ERC-8183)",
+    title: "USDC agent task settlement",
     status: "Planned",
-    copy: "Create jobs, fund USDC escrow, submit deliverable hashes, require evaluator approval, and settle completed research or automation tasks through Arc's reference job flow.",
-    href: "https://docs.arc.io/arc/tutorials/create-your-first-erc-8183-job",
-    linkLabel: "ERC-8183 quickstart"
+    copy: "Create jobs, fund USDC escrow, submit deliverable hashes, require evaluator approval, and settle completed research or automation tasks through Arc's reference job flow."
   },
   {
     phase: "09",
     title: "Guarded agent execution",
     status: "Research",
-    copy: "Evaluate smart wallets and session keys with action allowlists, USDC limits, expiry, revocation, simulation, and explicit user confirmation. No custody or unrestricted execution.",
-    href: "https://docs.arc.io/arc/tools/account-abstraction",
-    linkLabel: "Account abstraction"
+    copy: "Evaluate smart wallets and session keys with action allowlists, USDC limits, expiry, revocation, simulation, and explicit user confirmation. No custody or unrestricted execution."
   }
 ];

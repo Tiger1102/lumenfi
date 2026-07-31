@@ -467,7 +467,6 @@ export default function App() {
                   <em>{item.status}</em>
                   <h3>{item.title}</h3>
                   <p>{item.copy}</p>
-                  {item.href && <a className="roadmapSource" href={item.href} target="_blank" rel="noreferrer">{item.linkLabel}<ExternalLink size={14} /></a>}
                 </article>
               ))}
             </div>

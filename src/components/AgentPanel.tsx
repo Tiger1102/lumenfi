@@ -2,6 +2,7 @@ import { ArrowRight, Bot, BrainCircuit, Clock3, Database, RefreshCcw, Send, Shie
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Address } from "viem";
 import type { TokenSymbol } from "../lib/arc";
+import { AgentTrace } from "./AgentTrace";
 import {
   buildAgentAnswer,
   loadAgentSnapshot,
@@ -139,7 +140,7 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
           <div className="agentLoading" role="status">
             <Sparkles size={22} />
             <div><strong>Building account brief</strong><span>Reading balances, lending state, pool reserves, and the latest Arc block.</span></div>
-            <i /><i /><i />
+            <AgentTrace loading />
           </div>
         ) : error ? (
           <div className="agentError" role="alert">
@@ -161,6 +162,8 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
             <div className="agentFacts">
               {answer.details.map((detail) => <div key={detail}><span /><p>{detail}</p></div>)}
             </div>
+
+            <AgentTrace snapshot={snapshot} />
 
             <div className="agentRecommendations">
               <p className="agentSectionLabel">Suggested next steps</p>

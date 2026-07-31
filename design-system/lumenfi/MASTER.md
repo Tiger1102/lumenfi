@@ -41,6 +41,8 @@ This file is the source of truth for future LumenFi UI work.
 - Show loading, empty, error, disabled, and transaction states in context
 - Only the mounted market tab may run RPC reads
 - Quote requests from typed input must be debounced
+- Agent responses use a 21st.dev-inspired planning trace: show completed, active, partial, and pending evidence reads before recommendations
+- Keep the planning trace semantic and lightweight with native React/CSS; do not add Tailwind, shadcn, or Motion solely for this pattern
 
 ## Accessibility
 
