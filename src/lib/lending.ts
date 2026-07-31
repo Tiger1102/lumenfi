@@ -89,6 +89,13 @@ export const lendingPoolAbi = [
     stateMutability: "view",
     inputs: [{ name: "asset", type: "address" }],
     outputs: [{ name: "", type: "uint256" }]
+  },
+  {
+    type: "function",
+    name: "priceUsd",
+    stateMutability: "view",
+    inputs: [{ name: "asset", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }]
   }
 ] as const;
 
@@ -178,6 +185,22 @@ export async function getLendingAllowance(owner: Address, tokenSymbol: TokenSymb
       args: [owner, lendingPoolAddress]
     }), `${tokenSymbol} lending allowance`),
     `${tokenSymbol} lending allowance`
+  );
+}
+
+export async function getLendingAssetPrice(tokenSymbol: TokenSymbol) {
+  if (!lendingPoolAddress) return 1_000_000n;
+  return withLendingReadTimeout(
+    readWithRetry(
+      () => arcPublicClient.readContract({
+        address: lendingPoolAddress,
+        abi: lendingPoolAbi,
+        functionName: "priceUsd",
+        args: [getTokenAddress(tokenSymbol)]
+      }),
+      `${tokenSymbol} lending price`
+    ),
+    `${tokenSymbol} lending price`
   );
 }
 

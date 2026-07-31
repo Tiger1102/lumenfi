@@ -5,29 +5,33 @@ import projectSubmission from "../docs/project-submission.md?raw";
 import whitepaper from "../docs/whitepaper.md?raw";
 import { MarkdownDoc } from "./components/MarkdownDoc";
 import { roadmapItems } from "./content/roadmap";
+import type { AgentDestination } from "./lib/agent";
 import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
 import { lendingPoolAddress } from "./lib/lending";
 import { swapPoolAddress } from "./lib/swapPool";
 import { connectInjectedWallet, type ConnectedWallet } from "./lib/wallet";
 
 const BridgePanel = lazy(() => import("./components/BridgePanel").then((module) => ({ default: module.BridgePanel })));
+const AgentPanel = lazy(() => import("./components/AgentPanel").then((module) => ({ default: module.AgentPanel })));
 const LendingPanel = lazy(() => import("./components/LendingPanel").then((module) => ({ default: module.LendingPanel })));
 const PoolLiquidityPanel = lazy(() => import("./components/PoolLiquidityPanel").then((module) => ({ default: module.PoolLiquidityPanel })));
 const SwapPanel = lazy(() => import("./components/SwapPanel").then((module) => ({ default: module.SwapPanel })));
 
 type StatusState = { state: "idle" | "loading" | "success" | "error"; message: string; txHash?: string };
-type Page = "overview" | "app" | "bridge";
+type Page = "overview" | "app" | "bridge" | "agent";
 type MarketTab = "swap" | "pool" | "lending";
 
 const pagePaths: Record<Page, string> = {
   overview: "/",
   app: "/market",
-  bridge: "/bridge"
+  bridge: "/bridge",
+  agent: "/agent"
 };
 
 function pageFromPath(pathname: string): Page {
   if (pathname === "/market" || pathname === "/markets" || pathname === "/app") return "app";
   if (pathname === "/bridge") return "bridge";
+  if (pathname === "/agent") return "agent";
   return "overview";
 }
 
@@ -163,6 +167,16 @@ export default function App() {
     window.setTimeout(() => setActiveDoc(doc), 50);
   }
 
+  function openAgentDestination(destination: AgentDestination) {
+    if (destination === "bridge") {
+      setPage("bridge");
+      return;
+    }
+
+    setActiveMarketTab(destination);
+    setPage("app");
+  }
+
   async function copyAddress() {
     if (!wallet?.address) return;
     await navigator.clipboard?.writeText(wallet.address);
@@ -287,6 +301,7 @@ export default function App() {
           <button className={page === "overview" ? "active" : ""} type="button" onClick={() => setPage("overview")}>Overview</button>
           <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
           <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
+          <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>AI Agent</button>
           <button type="button" onClick={openRoadmap}>Roadmap</button>
           <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">Faucet</a>
           <button type="button" onClick={() => openDoc("whitepaper")}>Docs</button>
@@ -360,6 +375,7 @@ export default function App() {
         <button className={page === "overview" ? "active" : ""} type="button" onClick={() => setPage("overview")}>Overview</button>
         <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
         <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
+        <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>Agent</button>
       </nav>
 
       <div id="page-content" tabIndex={-1}>
@@ -443,7 +459,7 @@ export default function App() {
           </section>
 
           <section id="roadmap" className="sectionBlock roadmapPage" aria-label="LumenFi roadmap">
-            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>The agent roadmap follows Arc's ERC-8004 identity and ERC-8183 USDC job settlement flows, with read-only analysis before guarded execution.</p></div>
+            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>Phase 06 now ships a read-only Arc account assistant. Identity, USDC job settlement, and limited-permission execution remain later, separately gated phases.</p></div>
             <div className="roadmapGrid">
               {roadmapItems.map((item) => (
                 <article className="roadmapCard" key={item.phase}>
@@ -501,7 +517,7 @@ export default function App() {
             </div>
           </div>
         </section>
-      ) : (
+      ) : page === "bridge" ? (
         <section className="dashboardShell bridgePage">
           <div className="dashboardHeader">
             <div>
@@ -521,6 +537,26 @@ export default function App() {
               <BridgePanel address={wallet?.address} provider={wallet?.provider} setStatus={setStatus} />
             </Suspense>
           </div>
+        </section>
+      ) : (
+        <section className="dashboardShell agentPage">
+          <div className="dashboardHeader agentPageHeader">
+            <div>
+              <p className="eyebrow">AI Agent · Roadmap phase 06</p>
+              <h2>Account intelligence, grounded in Arc state.</h2>
+              <p>Ask for portfolio, lending, yield, swap, or bridge guidance. Every response stays read-only and links back to a user-controlled market action.</p>
+            </div>
+            <a href="https://docs.arc.io/build/agentic-economy" target="_blank" rel="noreferrer">Arc agentic economy <ExternalLink size={15} /></a>
+          </div>
+          <Suspense fallback={<ModuleFallback label="Loading LumenFi Agent..." />}>
+            <AgentPanel
+              address={wallet?.address}
+              balances={balances}
+              balancesLoading={balancesLoading}
+              onConnect={connect}
+              onNavigate={openAgentDestination}
+            />
+          </Suspense>
         </section>
       )}
       </div>

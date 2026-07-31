@@ -1,7 +1,7 @@
 type RoadmapItem = {
   phase: string;
   title: string;
-  status: "Live" | "Next" | "Planned" | "Research";
+  status: "Live" | "Beta" | "Next" | "Planned" | "Research";
   copy: string;
   href?: string;
   linkLabel?: string;
@@ -40,19 +40,19 @@ export const roadmapItems: RoadmapItem[] = [
   },
   {
     phase: "06",
-    title: "Agent identity (ERC-8004)",
-    status: "Next",
-    copy: "Register LumenFi agent metadata on Arc, expose its agent ID and owner, and read reputation and validation records. Portfolio and risk analysis remains read-only at this stage.",
-    href: "https://docs.arc.io/arc/tutorials/register-your-first-ai-agent",
-    linkLabel: "ERC-8004 quickstart"
+    title: "AI Agent (Arc Blueprints)",
+    status: "Beta",
+    copy: "Live read-only assistant for real-time portfolio insights, lending risk summaries, guided swaps, bridge preparation, passive asset reviews, and yield recommendations grounded in Arc contract state.",
+    href: "https://docs.arc.io/build/agentic-economy",
+    linkLabel: "Arc agentic economy"
   },
   {
     phase: "07",
-    title: "Risk copilot and event monitoring",
-    status: "Planned",
-    copy: "Monitor pool and lending events, explain health factor and slippage changes, and draft swap, lending, or bridge actions without signing transactions.",
-    href: "https://docs.arc.io/arc/tutorials/monitor-contract-events",
-    linkLabel: "Event monitoring guide"
+    title: "Agent identity (ERC-8004)",
+    status: "Next",
+    copy: "Register LumenFi agent metadata on Arc, expose its agent ID and owner, and read reputation and validation records while keeping all financial guidance read-only.",
+    href: "https://docs.arc.io/arc/tutorials/register-your-first-ai-agent",
+    linkLabel: "ERC-8004 quickstart"
   },
   {
     phase: "08",

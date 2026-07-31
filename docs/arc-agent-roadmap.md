@@ -1,14 +1,36 @@
 # LumenFi Arc agent roadmap
 
-This roadmap follows the current Arc agentic economy documentation. It replaces the earlier generic Arc Blueprints wording with standards and acceptance criteria that can be verified on Arc Testnet.
+This roadmap maps the original LumenFi Arc Blueprint concept to a working read-only agent and the current Arc agentic economy standards. Each phase has a separately verifiable capability boundary.
 
 ## Current boundary
 
-LumenFi does not currently run an autonomous agent. The live product provides wallet reads, swaps, liquidity, lending, bridge preparation, transaction receipts, and public contract links.
+LumenFi now runs a read-only account analysis agent. It reads wallet balances, lending state, pool reserves, and the latest Arc block to produce portfolio, risk, yield, swap, and bridge guidance. It does not approve, sign, or submit transactions.
 
 Agent features must progress from read-only analysis to narrowly authorized execution. No phase grants an agent unrestricted custody or unlimited transaction authority.
 
-## Phase 06: ERC-8004 agent identity
+## Phase 06: AI Agent (Arc Blueprints) beta
+
+Goal: deliver the original LumenFi assistant scope with onchain-grounded, read-only guidance.
+
+- Read wallet USDC and EURC balances.
+- Read collateral, debt, borrow capacity, health factor, supplied assets, pool reserves, and the latest Arc block.
+- Answer portfolio, risk, yield, passive management, swap, and bridge prompts.
+- Link recommendations to the relevant user-controlled LumenFi module.
+- Never request token approval or a wallet signature.
+
+Acceptance criteria:
+
+- A connected wallet receives an account brief sourced from live Arc reads.
+- Every brief shows its observed block, timestamp, and partial-read warnings.
+- RPC failures render an inline retry state instead of blocking the interface.
+- Recommendations clearly distinguish displayed market rates from guaranteed returns.
+
+Arc references:
+
+- Agentic economy: https://docs.arc.io/build/agentic-economy
+- Build overview: https://docs.arc.io/build
+
+## Phase 07: ERC-8004 agent identity
 
 Goal: give the LumenFi agent a verifiable onchain identity.
 
@@ -29,25 +51,6 @@ Arc references:
 - ReputationRegistry: `0x8004B663056A597Dffe9eCcC1965A193B7388713`
 - ValidationRegistry: `0x8004Cb1BF31DAf7788923b405b754f57acEB4272`
 - Guide: https://docs.arc.io/arc/tutorials/register-your-first-ai-agent
-
-## Phase 07: read-only risk copilot
-
-Goal: turn verified market and account state into explainable guidance.
-
-- Monitor swap, liquidity, lending, and token events.
-- Summarize collateral, debt, health factor, liquidity, and slippage.
-- Produce action drafts with inputs, expected output, risks, and contract target.
-- Never sign or submit a transaction.
-
-Acceptance criteria:
-
-- Every recommendation cites the block number and data timestamp.
-- Stale or unavailable RPC data produces a clear warning instead of an action.
-- Users can inspect the exact calldata intent before any later execution phase.
-
-Arc reference:
-
-- Event monitoring: https://docs.arc.io/arc/tutorials/monitor-contract-events
 
 ## Phase 08: ERC-8183 USDC jobs
 
