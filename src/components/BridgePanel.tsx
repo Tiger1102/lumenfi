@@ -3,11 +3,15 @@ import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { estimateBridge, requestBridge, requestUnifiedBalances } from "../lib/circle";
 import { arcPublicClient, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, type EIP1193Provider } from "../lib/arc";
+import type { AgentActionDraft } from "../lib/agent";
+import { AgentDraftNotice } from "./AgentDraftNotice";
 import { PanelNotice } from "./PanelNotice";
 
 type BridgePanelProps = {
   address?: Address;
   provider?: EIP1193Provider;
+  agentDraft?: AgentActionDraft;
+  onDismissAgentDraft?: () => void;
   setStatus: (message: string, state?: "success" | "error" | "loading", txHash?: string) => void;
 };
 
@@ -24,7 +28,7 @@ function chainLabel(value: BridgeChain) {
   return BRIDGE_CHAINS.find((chain) => chain.value === value)?.label ?? value.replace("_", " ");
 }
 
-export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) {
+export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft, setStatus }: BridgePanelProps) {
   const [sourceChain, setSourceChain] = useState<BridgeChain>("Base_Sepolia");
   const [destinationChain, setDestinationChain] = useState<BridgeChain>("Arc_Testnet");
   const [amount, setAmount] = useState("25");
@@ -57,6 +61,16 @@ export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) 
   useEffect(() => {
     loadArcUsdcBalance().catch(() => setArcUsdcBalance("0 USDC"));
   }, [address]);
+
+  useEffect(() => {
+    if (!agentDraft || agentDraft.destination !== "bridge" || agentDraft.action !== "bridge") return;
+    setSourceChain("Base_Sepolia");
+    setDestinationChain("Arc_Testnet");
+    setAmount(agentDraft.amount);
+    setRecipient(address ?? "");
+    setRouteEstimate("Ready to preview");
+    setNotice(undefined);
+  }, [agentDraft?.id, address]);
 
   async function previewRoute() {
     if (!provider || !address) {
@@ -138,6 +152,7 @@ export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) 
   function reverseChains() {
     setSourceChain(destinationChain);
     setDestinationChain(sourceChain);
+    onDismissAgentDraft?.();
   }
 
   return (
@@ -149,12 +164,13 @@ export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) 
         </div>
         <Cable size={20} />
       </div>
+      <AgentDraftNotice draft={agentDraft?.destination === "bridge" ? agentDraft : undefined} onDismiss={onDismissAgentDraft} />
       <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
 
       <div className="bridgeNetworkGrid" aria-label="Bridge networks">
         <label className="field">
           <span>From chain</span>
-          <select value={sourceChain} onChange={(event) => setSourceChain(event.target.value as BridgeChain)}>
+          <select value={sourceChain} onChange={(event) => { setSourceChain(event.target.value as BridgeChain); onDismissAgentDraft?.(); }}>
             {BRIDGE_CHAINS.map((chain) => <option value={chain.value} key={chain.value}>{chain.label}</option>)}
           </select>
         </label>
@@ -165,7 +181,7 @@ export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) 
 
         <label className="field">
           <span>To chain</span>
-          <select value={destinationChain} onChange={(event) => setDestinationChain(event.target.value as BridgeChain)}>
+          <select value={destinationChain} onChange={(event) => { setDestinationChain(event.target.value as BridgeChain); onDismissAgentDraft?.(); }}>
             {BRIDGE_CHAINS.map((chain) => <option value={chain.value} key={chain.value}>{chain.label}</option>)}
           </select>
         </label>
@@ -173,12 +189,12 @@ export function BridgePanel({ address, provider, setStatus }: BridgePanelProps) 
 
       <label className="field">
         <span className="tokenLabel"><i style={{ background: ARC_TOKENS.USDC.accent }}>U</i> USDC amount</span>
-        <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+        <input value={amount} onChange={(event) => { setAmount(event.target.value); onDismissAgentDraft?.(); }} inputMode="decimal" />
       </label>
 
       <label className="field">
         <span>Recipient</span>
-        <input value={recipient || address || ""} onChange={(event) => setRecipient(event.target.value)} placeholder="Destination wallet address" />
+        <input value={recipient || address || ""} onChange={(event) => { setRecipient(event.target.value); onDismissAgentDraft?.(); }} placeholder="Destination wallet address" />
       </label>
 
       <div className="routeSummary bridgeRouteSummary" aria-label="Bridge route">

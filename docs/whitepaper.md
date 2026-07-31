@@ -125,13 +125,13 @@ Phase 04 - Lending market and risk controls: live. LumenFi includes USDC/EURC de
 
 Phase 05 - Market depth and analytics: live. LumenFi now shows live pool depth, LP supply, reserve analytics, pool rate, swap fee visibility, route estimates, minimum received, and price-impact context for USDC/EURC market actions.
 
-Phase 06 - AI Agent (Arc Blueprints): beta. The live read-only agent analyzes wallet balances, lending risk, pool state, yield context, guided swaps, and bridge readiness from Arc state. It produces explanations and deep links but cannot approve, sign, or submit transactions.
+Phase 06 - AI action planner: live. The agent analyzes wallet balances, lending risk, pool state, yield context, guided swaps, and bridge readiness from Arc state. It produces bounded repay, supply, swap, and bridge drafts with prefilled values. The destination module revalidates live state, and only the connected wallet can approve or sign.
 
 Phase 07 - Agent identity (ERC-8004): next. Register LumenFi agent metadata on Arc, expose the agent ID and owner, and surface reputation and validation records while keeping financial guidance read-only.
 
 Phase 08 - USDC agent jobs (ERC-8183): planned. Create jobs, fund USDC escrow, submit deliverable hashes, require evaluator approval, and settle completed research or automation tasks.
 
-Phase 09 - Guarded agent execution: research. Evaluate smart wallets and session keys with action allowlists, USDC limits, expiry, revocation, simulation, and explicit user confirmation. LumenFi will not provide unrestricted agent custody or execution.
+Phase 09 - Permissioned automation: next. Extend user-approved action drafts with smart wallets and session keys using action allowlists, USDC limits, expiry, revocation, simulation, and explicit user confirmation. LumenFi will not provide unrestricted agent custody or execution.
 
 ## Current Status
 

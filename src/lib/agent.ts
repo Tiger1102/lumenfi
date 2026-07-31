@@ -5,6 +5,33 @@ import { poolReserves } from "./swapPool";
 
 export type AgentIntent = "portfolio" | "risk" | "yield" | "swap" | "bridge" | "passive";
 export type AgentDestination = "swap" | "lending" | "bridge";
+export type AgentActionKind = "deposit" | "repay" | "swap" | "bridge";
+
+export type AgentActionDraft = {
+  id: string;
+  destination: AgentDestination;
+  action: AgentActionKind;
+  asset: "USDC" | "EURC";
+  secondaryAsset?: "USDC" | "EURC";
+  amount: string;
+  title: string;
+  rationale: string;
+  expectedOutcome: string;
+  checks: string[];
+  createdAt: string;
+  sourceBlock?: string;
+};
+
+export type AgentActivity = {
+  id: string;
+  title: string;
+  action: AgentActionKind;
+  asset: string;
+  amount: string;
+  destination: AgentDestination;
+  txHash: string;
+  completedAt: string;
+};
 
 export type AgentSnapshot = {
   address: Address;
@@ -24,6 +51,8 @@ export type AgentSnapshot = {
     healthFactorBps: number;
     usdcSupplied: number;
     eurcSupplied: number;
+    usdcDebt: number;
+    eurcDebt: number;
   };
   pool?: {
     usdcReserve: number;
@@ -38,6 +67,7 @@ export type AgentRecommendation = {
   actionLabel: string;
   destination: AgentDestination;
   tone: "positive" | "neutral" | "warning";
+  draft?: AgentActionDraft;
 };
 
 export type AgentAnswer = {
@@ -121,7 +151,9 @@ export async function loadAgentSnapshot(
       availableBorrows: numberFromUnits(accountData?.[2]),
       healthFactorBps: Number(accountData?.[3] ?? 0n),
       usdcSupplied: numberFromUnits(usdcSnapshot?.position.collateral),
-      eurcSupplied: numberFromUnits(eurcSnapshot?.position.collateral)
+      eurcSupplied: numberFromUnits(eurcSnapshot?.position.collateral),
+      usdcDebt: numberFromUnits(usdcSnapshot?.position.debt),
+      eurcDebt: numberFromUnits(eurcSnapshot?.position.debt)
     },
     pool: pool
       ? {
@@ -134,7 +166,7 @@ export async function loadAgentSnapshot(
 }
 
 export function detectAgentIntent(prompt: string): AgentIntent {
-  const normalized = prompt.toLowerCase();
+  const normalized = prompt.toLocaleLowerCase("vi");
   if (/risk|health|debt|borrow|liquid|rủi ro|nợ|vay/.test(normalized)) return "risk";
   if (/yield|apy|earn|supply|lãi|lợi nhuận/.test(normalized)) return "yield";
   if (/swap|exchange|convert|đổi|hoán đổi/.test(normalized)) return "swap";
@@ -160,6 +192,27 @@ function riskLabel(snapshot: AgentSnapshot) {
   return `High liquidation risk at ${health.toFixed(1)}%`;
 }
 
+function actionAmount(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  return value.toLocaleString("en-US", {
+    useGrouping: false,
+    minimumFractionDigits: value < 1 ? 2 : 0,
+    maximumFractionDigits: 4
+  });
+}
+
+function createDraft(
+  snapshot: AgentSnapshot,
+  input: Omit<AgentActionDraft, "id" | "createdAt" | "sourceBlock">
+): AgentActionDraft {
+  return {
+    ...input,
+    id: `${input.action}-${snapshot.observedAt}`,
+    createdAt: snapshot.observedAt,
+    sourceBlock: snapshot.blockNumber
+  };
+}
+
 export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAnswer {
   const intent = detectAgentIntent(prompt);
   const usdcAllocation = allocation(snapshot);
@@ -167,6 +220,68 @@ export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAns
   const hasFunds = wallet.totalUsd > 0;
   const hasDebt = lending.debtValue > 0;
   const hasSupply = lending.usdcSupplied + lending.eurcSupplied > 0;
+  const debtAsset = lending.usdcDebt >= lending.eurcDebt ? "USDC" : "EURC";
+  const debtAmount = debtAsset === "USDC" ? lending.usdcDebt : lending.eurcDebt;
+  const debtWalletBalance = debtAsset === "USDC" ? wallet.usdc : wallet.eurc;
+  const repayAmount = Math.min(debtAmount, debtWalletBalance, Math.max(debtAmount * 0.25, Math.min(debtAmount, 1)));
+  const yieldAsset = wallet.usdc >= wallet.eurc ? "USDC" : "EURC";
+  const yieldBalance = yieldAsset === "USDC" ? wallet.usdc : wallet.eurc;
+  const supplyAmount = yieldBalance * 0.2;
+  const swapFrom = wallet.usdc >= wallet.eurc ? "USDC" : "EURC";
+  const swapTo = swapFrom === "USDC" ? "EURC" : "USDC";
+  const swapBalance = swapFrom === "USDC" ? wallet.usdc : wallet.eurc;
+  const swapAmount = swapBalance * 0.15;
+
+  const repayDraft = hasDebt && repayAmount > 0
+    ? createDraft(snapshot, {
+        destination: "lending",
+        action: "repay",
+        asset: debtAsset,
+        amount: actionAmount(repayAmount),
+        title: `Repay ${actionAmount(repayAmount)} ${debtAsset}`,
+        rationale: "Reduce the largest detected debt balance while keeping approval and signing under wallet control.",
+        expectedOutcome: `Debt falls by up to ${actionAmount(repayAmount)} ${debtAsset}; account health should improve after settlement.`,
+        checks: ["Live debt and wallet balance checked", "Amount capped at the open debt", "Contract simulation required", "Wallet confirmation required"]
+      })
+    : undefined;
+
+  const supplyDraft = !hasDebt && supplyAmount > 0
+    ? createDraft(snapshot, {
+        destination: "lending",
+        action: "deposit",
+        asset: yieldAsset,
+        amount: actionAmount(supplyAmount),
+        title: `Review ${actionAmount(supplyAmount)} ${yieldAsset} supply`,
+        rationale: "Allocate 20% of the larger idle stablecoin balance and leave the remainder liquid.",
+        expectedOutcome: `Adds ${actionAmount(supplyAmount)} ${yieldAsset} to supplied collateral if the transaction succeeds.`,
+        checks: ["Wallet balance checked", "80% of the selected balance remains liquid", "Contract simulation required", "APY is variable", "Wallet confirmation required"]
+      })
+    : undefined;
+
+  const swapDraft = hasFunds && swapAmount > 0
+    ? createDraft(snapshot, {
+        destination: "swap",
+        action: "swap",
+        asset: swapFrom,
+        secondaryAsset: swapTo,
+        amount: actionAmount(swapAmount),
+        title: `Preview ${swapFrom} → ${swapTo}`,
+        rationale: "Use 15% of the larger wallet balance to review a less concentrated stablecoin allocation.",
+        expectedOutcome: "The market module will calculate live output and minimum received before signing.",
+        checks: ["Pool reserves observed", "Live quote required", "Contract simulation required", "Slippage protection enabled", "Wallet confirmation required"]
+      })
+    : undefined;
+
+  const bridgeDraft = createDraft(snapshot, {
+    destination: "bridge",
+    action: "bridge",
+    asset: "USDC",
+    amount: "25",
+    title: "Preview 25 USDC into Arc",
+    rationale: "Prepare a small testnet route into Arc before committing a larger amount.",
+    expectedOutcome: "Circle App Kit will return the available route and estimate before any wallet request.",
+    checks: ["Destination set to Arc Testnet", "Route preview required", "Recipient defaults to connected wallet", "Wallet confirmation required"]
+  });
 
   const commonDetails = [
     `${money(wallet.totalUsd)} estimated wallet value across USDC and EURC`,
@@ -179,19 +294,21 @@ export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAns
     description: hasFunds
       ? "This wallet already has Arc stablecoin liquidity. Bridge only if you need additional USDC."
       : "No Arc stablecoin balance was detected. Prepare an App Kit route from a supported testnet before using markets.",
-    actionLabel: "Open bridge",
+    actionLabel: "Review bridge draft",
     destination: "bridge",
-    tone: hasFunds ? "neutral" : "warning"
+    tone: hasFunds ? "neutral" : "warning",
+    draft: bridgeDraft
   };
 
   const lendingRecommendation: AgentRecommendation = {
-    title: hasDebt ? "Protect the lending buffer" : hasSupply ? "Review supplied assets" : "Review read-only yield",
+    title: hasDebt ? "Protect the lending buffer" : hasSupply ? "Review supplied assets" : "Review available yield",
     description: hasDebt
       ? `Current debt is ${money(lending.debtValue)}. Review health before withdrawing collateral or adding borrow exposure.`
       : "The market currently displays a 3.20% supply APY. Review contract state and liquidity before depositing.",
-    actionLabel: "Open lending",
+    actionLabel: repayDraft ? "Review repay draft" : supplyDraft ? "Review supply draft" : "Open lending",
     destination: "lending",
-    tone: hasDebt && lending.healthFactorBps < 12_000 ? "warning" : "positive"
+    tone: hasDebt && lending.healthFactorBps < 12_000 ? "warning" : "positive",
+    draft: repayDraft ?? supplyDraft
   };
 
   const swapRecommendation: AgentRecommendation = {
@@ -199,9 +316,10 @@ export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAns
     description: hasFunds
       ? `Wallet allocation is ${usdcAllocation.toFixed(1)}% USDC and ${(100 - usdcAllocation).toFixed(1)}% EURC. Preview price impact before changing that mix.`
       : "Bridge or receive USDC/EURC first, then request a pool quote before signing.",
-    actionLabel: "Open swap",
+    actionLabel: swapDraft ? "Review swap draft" : "Open swap",
     destination: "swap",
-    tone: hasFunds && (usdcAllocation > 90 || usdcAllocation < 10) ? "warning" : "neutral"
+    tone: hasFunds && (usdcAllocation > 90 || usdcAllocation < 10) ? "warning" : "neutral",
+    draft: swapDraft
   };
 
   if (intent === "risk") {
@@ -214,7 +332,9 @@ export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAns
       details: [
         `Available borrow capacity: ${money(lending.availableBorrows)}`,
         `Supplied: ${money(lending.usdcSupplied)} USDC and ${money(lending.eurcSupplied)} EURC`,
-        "Agent execution is disabled; this report cannot repay, borrow, or withdraw"
+        repayDraft
+          ? `Prepared action: repay ${repayDraft.amount} ${repayDraft.asset}, subject to live validation`
+          : "No safe repay draft is available from the detected wallet balance"
       ],
       recommendations: [lendingRecommendation]
     };
@@ -225,7 +345,7 @@ export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAns
       intent,
       headline: hasFunds ? "Idle balance can be evaluated for supply" : "Fund the wallet before comparing yield",
       summary: hasFunds
-      ? `${money(wallet.totalUsd)} in estimated wallet value is available. LumenFi displays a 3.20% supply APY, but the agent will not deposit automatically.`
+        ? `${money(wallet.totalUsd)} in estimated wallet value is available. LumenFi displays a 3.20% supply APY; the wallet still controls execution.`
         : "No USDC or EURC is available for a lending or liquidity strategy.",
       details: [
         "Compare wallet liquidity needs before supplying assets",
@@ -246,7 +366,7 @@ export function buildAgentAnswer(snapshot: AgentSnapshot, prompt = ""): AgentAns
           ? `Pool reserves observed: ${money(snapshot.pool.usdcReserve)} USDC and ${money(snapshot.pool.eurcReserve)} EURC`
           : "Pool reserves were unavailable during this analysis",
         "Use the live quote for minimum received and price impact",
-        "The agent prepares guidance only and cannot approve or sign"
+        "The agent can prepare the route and amount, but only the connected wallet can approve or sign"
       ],
       recommendations: [swapRecommendation]
     };
