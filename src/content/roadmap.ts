@@ -38,9 +38,9 @@ export const roadmapItems: RoadmapItem[] = [
   },
   {
     phase: "06",
-    title: "AI Agent (Arc Blueprints)",
-    status: "Beta",
-    copy: "Live read-only assistant for real-time portfolio insights, lending risk summaries, guided swaps, bridge preparation, passive asset reviews, and yield recommendations grounded in Arc contract state."
+    title: "AI action planner",
+    status: "Live",
+    copy: "Reads live Arc balances, lending positions, pool reserves, prices, and block evidence; then prepares bounded repay, supply, swap, or bridge actions with prefilled values and mandatory wallet confirmation."
   },
   {
     phase: "07",
@@ -56,8 +56,8 @@ export const roadmapItems: RoadmapItem[] = [
   },
   {
     phase: "09",
-    title: "Guarded agent execution",
-    status: "Research",
-    copy: "Evaluate smart wallets and session keys with action allowlists, USDC limits, expiry, revocation, simulation, and explicit user confirmation. No custody or unrestricted execution."
+    title: "Permissioned automation",
+    status: "Next",
+    copy: "Extend today's user-approved action drafts with smart wallets and session keys using action allowlists, USDC limits, expiry, revocation, and simulation. No custody or unrestricted execution."
   }
 ];

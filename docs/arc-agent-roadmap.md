@@ -1,22 +1,25 @@
 # LumenFi Arc agent roadmap
 
-This roadmap maps the original LumenFi Arc Blueprint concept to a working read-only agent and the current Arc agentic economy standards. Each phase has a separately verifiable capability boundary.
+This roadmap maps the original LumenFi Arc Blueprint concept to a working action-planning agent and the current Arc agentic economy standards. Each phase has a separately verifiable capability boundary.
 
 ## Current boundary
 
-LumenFi now runs a read-only account analysis agent. It reads wallet balances, lending state, pool reserves, and the latest Arc block to produce portfolio, risk, yield, swap, and bridge guidance. It does not approve, sign, or submit transactions.
+LumenFi now runs a user-controlled account agent. It reads wallet balances, lending state, pool reserves, prices, and the latest Arc block; produces portfolio, risk, yield, swap, and bridge guidance; and prepares bounded actions with prefilled values. It does not approve or sign transactions.
 
 Agent features must progress from read-only analysis to narrowly authorized execution. No phase grants an agent unrestricted custody or unlimited transaction authority.
 
-## Phase 06: AI Agent (Arc Blueprints) beta
+## Phase 06: AI action planner - live
 
-Goal: deliver the original LumenFi assistant scope with onchain-grounded, read-only guidance.
+Goal: deliver onchain-grounded guidance that can become a reviewable, user-approved market action.
 
 - Read wallet USDC and EURC balances.
 - Read collateral, debt, borrow capacity, health factor, supplied assets, pool reserves, and the latest Arc block.
 - Answer portfolio, risk, yield, passive management, swap, and bridge prompts.
-- Link recommendations to the relevant user-controlled LumenFi module.
-- Never request token approval or a wallet signature.
+- Prepare bounded repay, supply, swap, and bridge drafts from observed account state.
+- Prefill the relevant user-controlled LumenFi module.
+- Revalidate amount, balance, allowance, quote, and route state in the destination module, and simulate supported contract writes before signing.
+- Leave every approval and signature to the connected wallet.
+- Store explorer-linked receipts for completed agent-assisted transactions.
 
 Acceptance criteria:
 
@@ -24,6 +27,8 @@ Acceptance criteria:
 - Every brief shows its observed block, timestamp, and partial-read warnings.
 - RPC failures render an inline retry state instead of blocking the interface.
 - Recommendations clearly distinguish displayed market rates from guaranteed returns.
+- Drafts show their source block, rationale, expected outcome, and safety checks.
+- The agent never receives custody or signing authority.
 
 Arc references:
 
@@ -73,9 +78,9 @@ Arc references:
 - AgenticCommerce reference implementation: `0x0747EEf0706327138c69792bF28Cd525089e4583`
 - Guide: https://docs.arc.io/arc/tutorials/create-your-first-erc-8183-job
 
-## Phase 09: guarded execution research
+## Phase 09: permissioned automation
 
-Goal: test constrained execution without creating an unrestricted trading agent.
+Goal: extend today's user-approved drafts with narrowly scoped automation without creating an unrestricted trading agent.
 
 - Evaluate smart wallets, paymasters, and session keys.
 - Allowlist contract addresses and function selectors.

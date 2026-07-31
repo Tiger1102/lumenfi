@@ -4,11 +4,15 @@ import type { Address, WalletClient } from "viem";
 import { formatUnits } from "viem";
 import { approveLending, clearLendingSnapshotCache, getLendingAllowance, getLendingSnapshot, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
 import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type TokenSymbol } from "../lib/arc";
+import type { AgentActionDraft } from "../lib/agent";
+import { AgentDraftNotice } from "./AgentDraftNotice";
 import { PanelNotice } from "./PanelNotice";
 
 type LendingPanelProps = {
   address?: Address;
   walletClient?: WalletClient;
+  agentDraft?: AgentActionDraft;
+  onDismissAgentDraft?: () => void;
   onConnect: () => Promise<void>;
   setStatus: (message: string, state?: "success" | "error" | "loading", txHash?: string) => void;
 };
@@ -52,7 +56,7 @@ function readableLendingError(error: unknown) {
   return message || "Lending transaction failed.";
 }
 
-export function LendingPanel({ address, walletClient, onConnect, setStatus }: LendingPanelProps) {
+export function LendingPanel({ address, walletClient, agentDraft, onDismissAgentDraft, onConnect, setStatus }: LendingPanelProps) {
   const [token, setToken] = useState<TokenSymbol>("USDC");
   const [actionMode, setActionMode] = useState<LendingAction>("deposit");
   const [amount, setAmount] = useState("50");
@@ -158,6 +162,15 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
   }, [address, token]);
 
   useEffect(() => {
+    if (!agentDraft || agentDraft.destination !== "lending") return;
+    if (agentDraft.action !== "deposit" && agentDraft.action !== "repay") return;
+    setToken(agentDraft.asset);
+    setActionMode(agentDraft.action);
+    setAmount(agentDraft.amount);
+    setNotice(undefined);
+  }, [agentDraft?.id]);
+
+  useEffect(() => {
     let cancelled = false;
     if (!address || (actionMode !== "deposit" && actionMode !== "repay")) {
       setAllowance(0n);
@@ -254,6 +267,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
 
   function setMaxAmount() {
     setAmount(formatTokenAmount(maxForAction, tokenMeta));
+    onDismissAgentDraft?.();
   }
 
   return (
@@ -265,6 +279,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
         </div>
         <HandCoins size={20} />
       </div>
+      <AgentDraftNotice draft={agentDraft?.destination === "lending" ? agentDraft : undefined} onDismiss={onDismissAgentDraft} />
       <PanelNotice
         status={notice?.status}
         message={notice?.message}
@@ -303,7 +318,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
               <span>ASSET</span>
               <div className="lendingCleanTokenTabs" aria-label="Lending asset">
                 {(["USDC", "EURC"] as const).map((symbol) => (
-                  <button className={token === symbol ? "active" : ""} type="button" key={symbol} onClick={() => setToken(symbol)}>
+                  <button className={token === symbol ? "active" : ""} type="button" key={symbol} onClick={() => { setToken(symbol); onDismissAgentDraft?.(); }}>
                     <i className="tokenIcon" style={{ background: ARC_TOKENS[symbol].accent }}>
                       {symbol.slice(0, 1)}
                     </i>
@@ -330,7 +345,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
 
           <div className="lendingCleanActions" aria-label="Lending action">
             {(["deposit", "withdraw", "borrow", "repay"] as const).map((action) => (
-              <button className={actionMode === action ? "active" : ""} type="button" key={action} onClick={() => setActionMode(action)}>
+              <button className={actionMode === action ? "active" : ""} type="button" key={action} onClick={() => { setActionMode(action); onDismissAgentDraft?.(); }}>
                 {actionLabel(action)}
               </button>
             ))}
@@ -357,7 +372,7 @@ export function LendingPanel({ address, walletClient, onConnect, setStatus }: Le
                 <b>{!dataReady || loading ? <i className="skeletonText tiny" /> : `Wallet ${walletBalanceText} ${token}`}</b>
               </div>
               <div className="lendingCleanInputRow">
-                <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+                <input value={amount} onChange={(event) => { setAmount(event.target.value); onDismissAgentDraft?.(); }} inputMode="decimal" />
                 <button type="button" onClick={setMaxAmount}>
                   Max
                 </button>

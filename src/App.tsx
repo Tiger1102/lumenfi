@@ -5,7 +5,7 @@ import projectSubmission from "../docs/project-submission.md?raw";
 import whitepaper from "../docs/whitepaper.md?raw";
 import { MarkdownDoc } from "./components/MarkdownDoc";
 import { roadmapItems } from "./content/roadmap";
-import type { AgentDestination } from "./lib/agent";
+import type { AgentActionDraft, AgentActivity, AgentDestination } from "./lib/agent";
 import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
 import { lendingPoolAddress } from "./lib/lending";
 import { swapPoolAddress } from "./lib/swapPool";
@@ -87,6 +87,17 @@ const marketTabs: { id: MarketTab; label: string }[] = [
   { id: "lending", label: "Lending Market" }
 ];
 
+const AGENT_ACTIVITY_STORAGE_KEY = "lumenfi:agent-activity:v1";
+
+function readAgentActivity(): AgentActivity[] {
+  try {
+    const stored = window.localStorage.getItem(AGENT_ACTIVITY_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as AgentActivity[]).slice(0, 12) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function App() {
   const [wallet, setWallet] = useState<ConnectedWallet>();
   const [balances, setBalances] = useState<Partial<Record<TokenSymbol, bigint>>>({});
@@ -97,6 +108,8 @@ export default function App() {
   const [isArcNetwork, setIsArcNetwork] = useState(true);
   const [balancesLoading, setBalancesLoading] = useState(false);
   const [activeMarketTab, setActiveMarketTab] = useState<MarketTab>("swap");
+  const [agentDraft, setAgentDraft] = useState<AgentActionDraft>();
+  const [agentActivity, setAgentActivity] = useState<AgentActivity[]>(readAgentActivity);
   const balancePopoverRef = useRef<HTMLDivElement>(null);
   const docModalRef = useRef<HTMLDivElement>(null);
 
@@ -126,6 +139,34 @@ export default function App() {
 
     if (txHash && state === "success" && wallet?.address) {
       refreshBalances(wallet.address).catch(() => undefined);
+
+      const draftMatchesCurrentModule = agentDraft && (
+        (agentDraft.destination === "bridge" && page === "bridge") ||
+        (page === "app" && agentDraft.destination === activeMarketTab)
+      );
+
+      if (agentDraft && draftMatchesCurrentModule) {
+        const completed: AgentActivity = {
+          id: `${agentDraft.id}-${txHash}`,
+          title: agentDraft.title,
+          action: agentDraft.action,
+          asset: agentDraft.secondaryAsset ? `${agentDraft.asset} → ${agentDraft.secondaryAsset}` : agentDraft.asset,
+          amount: agentDraft.amount,
+          destination: agentDraft.destination,
+          txHash,
+          completedAt: new Date().toISOString()
+        };
+        setAgentActivity((current) => {
+          const next = [completed, ...current.filter((item) => item.txHash !== txHash)].slice(0, 12);
+          try {
+            window.localStorage.setItem(AGENT_ACTIVITY_STORAGE_KEY, JSON.stringify(next));
+          } catch {
+            // The in-memory receipt still remains available when storage is blocked.
+          }
+          return next;
+        });
+        setAgentDraft(undefined);
+      }
     }
   }
 
@@ -145,6 +186,7 @@ export default function App() {
   function disconnect() {
     setWallet(undefined);
     setBalances({});
+    setAgentDraft(undefined);
     setStatus("Wallet disconnected.", "idle");
   }
 
@@ -169,7 +211,8 @@ export default function App() {
     window.setTimeout(() => setActiveDoc(doc), 50);
   }
 
-  function openAgentDestination(destination: AgentDestination) {
+  function openAgentDestination(destination: AgentDestination, draft?: AgentActionDraft) {
+    setAgentDraft(draft);
     if (destination === "bridge") {
       setPage("bridge");
       return;
@@ -209,20 +252,18 @@ export default function App() {
     setBalancesLoading(true);
 
     try {
-      const entries: [TokenSymbol, bigint][] = [];
-      for (const symbol of BALANCE_TOKEN_SYMBOLS) {
+      const entries = await Promise.all(BALANCE_TOKEN_SYMBOLS.map(async (symbol): Promise<[TokenSymbol, bigint]> => {
         const token = ARC_TOKENS[symbol];
         if (!token.address) {
-          entries.push([token.symbol, 0n]);
-          continue;
+          return [token.symbol, 0n];
         }
 
         const value = await readWithRetry(
           () => arcPublicClient.readContract({ address: getTokenAddress(symbol), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
           `${symbol} balance`
         );
-        entries.push([token.symbol, value]);
-      }
+        return [token.symbol, value];
+      }));
       setBalances(Object.fromEntries(entries) as Partial<Record<TokenSymbol, bigint>>);
     } catch (error) {
       setStatus(error instanceof Error ? `Balance read failed: ${error.message}` : "Balance read failed.", "error");
@@ -467,7 +508,7 @@ export default function App() {
           </section>
 
           <section id="roadmap" className="sectionBlock roadmapPage" aria-label="LumenFi roadmap">
-            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>The read-only account assistant is live in beta. Identity, task settlement, and permissioned execution remain separately gated milestones.</p></div>
+            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>The action-planning agent is live with wallet-controlled execution. Identity, task settlement, and scoped automation remain separately gated milestones.</p></div>
             <div className="roadmapGrid">
               {roadmapItems.map((item) => (
                 <article className="roadmapCard" key={item.phase}>
@@ -498,7 +539,15 @@ export default function App() {
           <div className="proSections">
             <div className="moduleTabs" aria-label="Market modules">
               {marketTabs.map((tab) => (
-                <button className={activeMarketTab === tab.id ? "active" : ""} type="button" key={tab.id} onClick={() => setActiveMarketTab(tab.id)}>
+                <button
+                  className={activeMarketTab === tab.id ? "active" : ""}
+                  type="button"
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveMarketTab(tab.id);
+                    if (agentDraft && agentDraft.destination !== tab.id) setAgentDraft(undefined);
+                  }}
+                >
                   {tab.label}
                 </button>
               ))}
@@ -512,13 +561,22 @@ export default function App() {
                     walletClient={wallet?.walletClient}
                     balances={balances}
                     balancesLoading={balancesLoading}
+                    agentDraft={agentDraft}
+                    onDismissAgentDraft={() => setAgentDraft(undefined)}
                     onConnect={connect}
                     setStatus={setStatus}
                   />
                 ) : activeMarketTab === "pool" ? (
                   <PoolLiquidityPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
                 ) : (
-                  <LendingPanel address={wallet?.address} walletClient={wallet?.walletClient} onConnect={connect} setStatus={setStatus} />
+                  <LendingPanel
+                    address={wallet?.address}
+                    walletClient={wallet?.walletClient}
+                    agentDraft={agentDraft}
+                    onDismissAgentDraft={() => setAgentDraft(undefined)}
+                    onConnect={connect}
+                    setStatus={setStatus}
+                  />
                 )}
               </Suspense>
             </div>
@@ -541,7 +599,13 @@ export default function App() {
 
           <div className="bridgeWorkspace single">
             <Suspense fallback={<ModuleFallback label="Loading bridge module..." />}>
-              <BridgePanel address={wallet?.address} provider={wallet?.provider} setStatus={setStatus} />
+              <BridgePanel
+                address={wallet?.address}
+                provider={wallet?.provider}
+                agentDraft={agentDraft}
+                onDismissAgentDraft={() => setAgentDraft(undefined)}
+                setStatus={setStatus}
+              />
             </Suspense>
           </div>
         </section>
@@ -549,9 +613,9 @@ export default function App() {
         <section className="dashboardShell agentPage">
           <div className="dashboardHeader agentPageHeader">
             <div>
-              <p className="eyebrow">Read-only Arc intelligence</p>
-              <h2>Account guidance grounded in contract state</h2>
-              <p>Ask for portfolio, lending, yield, swap, or bridge guidance. Every response stays read-only and links back to a user-controlled market action.</p>
+              <p className="eyebrow">User-controlled Arc intelligence</p>
+              <h2>From onchain evidence to an executable draft</h2>
+              <p>Ask for portfolio, lending, yield, swap, or bridge guidance. The agent prepares bounded actions from live contract state; your wallet reviews and signs every transaction.</p>
             </div>
             <a href="https://docs.arc.io/build/agentic-economy" target="_blank" rel="noreferrer">Arc agentic economy <ExternalLink size={15} /></a>
           </div>
@@ -560,6 +624,7 @@ export default function App() {
               address={wallet?.address}
               balances={balances}
               balancesLoading={balancesLoading}
+              activity={agentActivity}
               onConnect={connect}
               onNavigate={openAgentDestination}
             />

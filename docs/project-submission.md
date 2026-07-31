@@ -36,7 +36,7 @@ LumenFi uses Arc Testnet, Arc RPC, USDC gas model, ERC-20 USDC, EURC, deployed S
 
 Arc is a strong fit for LumenFi because the product is centered on stablecoin-native user journeys: balances, gas context, swaps, credit, and onboarding all make more sense when the chain is optimized for programmable money. LumenFi uses Arc Testnet to demonstrate how a user can move from wallet connection to market actions without leaving a stablecoin-first workspace.
 
-The app now includes a read-only Arc financial agent. It analyzes public wallet balances, lending position health, pool reserves, yield context, swap preparation, and bridge readiness without requesting a signature. Later phases add ERC-8004 identity and reputation, ERC-8183 USDC jobs, and eventually tightly guarded user-confirmed execution.
+The app now includes a user-controlled Arc financial agent. It analyzes public wallet balances, lending position health, pool reserves, yield context, swap preparation, and bridge readiness, then prepares bounded repay, supply, swap, or bridge actions with prefilled values. The market module revalidates live state and the connected wallet remains the only signer. Later phases add onchain identity, USDC jobs, and tightly scoped automation.
 
 ## Current Status
 
@@ -52,7 +52,7 @@ LumenFi is seeking feedback on stablecoin-native product direction, Arc-specific
 
 ## Roadmap
 
-Live: professional MVP, permissionless USDC/EURC LP pool, lending market risk controls, market depth analytics, module-level transaction feedback, testnet bridge workflow surface, and the read-only LumenFi Agent beta.
+Live: professional MVP, permissionless USDC/EURC LP pool, lending market risk controls, market depth analytics, module-level transaction feedback, testnet bridge workflow surface, and the LumenFi action-planning agent.
 
 Next: register the LumenFi Agent identity through ERC-8004 and surface its owner, metadata, reputation, and validation records.
 

@@ -258,8 +258,10 @@ export async function lendingAction(
   const token = ARC_TOKENS[tokenSymbol];
   const tokenAddress = getTokenAddress(tokenSymbol);
   const amount = parseTokenAmount(amountText, token);
-  const position = await getLendingTokenPosition(owner, tokenSymbol);
-  const accountData = await getAccountData(owner);
+  const [position, accountData] = await Promise.all([
+    getLendingTokenPosition(owner, tokenSymbol),
+    getAccountData(owner)
+  ]);
 
   if (amount === 0n) {
     throw new Error("Enter an amount greater than zero.");
@@ -300,7 +302,7 @@ export async function lendingAction(
     }
   }
 
-  const hash = await walletClient.writeContract({
+  const { request } = await arcPublicClient.simulateContract({
     address: lendingPoolAddress,
     abi: lendingPoolAbi,
     functionName: action,
@@ -308,6 +310,7 @@ export async function lendingAction(
     account: owner,
     chain: arcTestnet
   });
+  const hash = await walletClient.writeContract(request);
 
   return arcPublicClient.waitForTransactionReceipt({ hash });
 }
@@ -341,56 +344,58 @@ export async function getLendingTokenPosition(address: Address, tokenSymbol: Tok
   }
 
   const tokenAddress = getTokenAddress(tokenSymbol);
-  const collateral = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: lendingPoolAddress,
-        abi: lendingPoolAbi,
-        functionName: "collateralOf",
-        args: [address, tokenAddress]
-      }),
-    `${tokenSymbol} collateral`
-  );
-  const debt = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: lendingPoolAddress,
-        abi: lendingPoolAbi,
-        functionName: "debtOf",
-        args: [address, tokenAddress]
-      }),
-    `${tokenSymbol} debt`
-  );
-  const totalSupplied = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: lendingPoolAddress,
-        abi: lendingPoolAbi,
-        functionName: "totalSupplied",
-        args: [tokenAddress]
-      }),
-    `${tokenSymbol} total supplied`
-  );
-  const totalBorrowed = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: lendingPoolAddress,
-        abi: lendingPoolAbi,
-        functionName: "totalBorrowed",
-        args: [tokenAddress]
-      }),
-    `${tokenSymbol} total borrowed`
-  );
-  const walletBalance = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [address]
-      }),
-    `${tokenSymbol} wallet balance`
-  );
+  const [collateral, debt, totalSupplied, totalBorrowed, walletBalance] = await Promise.all([
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: lendingPoolAddress,
+          abi: lendingPoolAbi,
+          functionName: "collateralOf",
+          args: [address, tokenAddress]
+        }),
+      `${tokenSymbol} collateral`
+    ),
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: lendingPoolAddress,
+          abi: lendingPoolAbi,
+          functionName: "debtOf",
+          args: [address, tokenAddress]
+        }),
+      `${tokenSymbol} debt`
+    ),
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: lendingPoolAddress,
+          abi: lendingPoolAbi,
+          functionName: "totalSupplied",
+          args: [tokenAddress]
+        }),
+      `${tokenSymbol} total supplied`
+    ),
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: lendingPoolAddress,
+          abi: lendingPoolAbi,
+          functionName: "totalBorrowed",
+          args: [tokenAddress]
+        }),
+      `${tokenSymbol} total borrowed`
+    ),
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [address]
+        }),
+      `${tokenSymbol} wallet balance`
+    )
+  ]);
 
   return { collateral, debt, totalSupplied, totalBorrowed, walletBalance };
 }

@@ -25,7 +25,7 @@ function traceSteps(loading: boolean, snapshot?: AgentSnapshot): TraceStep[] {
     return [
       {
         title: "Wallet context received",
-        detail: "Using the connected Arc address as the read-only analysis subject.",
+        detail: "Using the connected Arc address as the analysis subject. Signing authority remains in the wallet.",
         meta: "complete",
         status: "success",
         icon: WalletCards
@@ -39,7 +39,7 @@ function traceSteps(loading: boolean, snapshot?: AgentSnapshot): TraceStep[] {
       },
       {
         title: "Building account brief",
-        detail: "Risk and allocation rules run only after the evidence reads settle.",
+        detail: "Risk and allocation rules run only after the evidence reads settle, then produce a bounded action draft.",
         meta: "queued",
         status: "pending",
         icon: CircleDot
@@ -90,9 +90,9 @@ function traceSteps(loading: boolean, snapshot?: AgentSnapshot): TraceStep[] {
       icon: ScanSearch
     },
     {
-      title: "Read-only recommendation generated",
-      detail: "The agent produced explanations and deep links only. It did not request an approval, signature, or transaction.",
-      meta: "no signing",
+      title: "Bounded action draft generated",
+      detail: "The agent can prefill a supported module, but it cannot approve or sign. Live module validation and wallet confirmation remain mandatory.",
+      meta: "user controlled",
       status: "success",
       icon: CircleDot
     }

@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { isCircleAppKitEnabled, requestSwap } from "../lib/circle";
 import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type EIP1193Provider, type TokenSymbol } from "../lib/arc";
+import type { AgentActionDraft } from "../lib/agent";
 import { approveSwap, getPoolSwapPreview, getSwapAllowance, poolSwap, supportsPoolSwap, swapPoolAddress } from "../lib/swapPool";
+import { AgentDraftNotice } from "./AgentDraftNotice";
 import { PanelNotice } from "./PanelNotice";
 import { TokenSelect } from "./TokenSelect";
 
@@ -13,6 +15,8 @@ type SwapPanelProps = {
   walletClient?: WalletClient;
   balances?: Partial<Record<TokenSymbol, bigint>>;
   balancesLoading?: boolean;
+  agentDraft?: AgentActionDraft;
+  onDismissAgentDraft?: () => void;
   onConnect: () => Promise<void>;
   setStatus: (message: string, state?: "success" | "error" | "loading", txHash?: string) => void;
 };
@@ -37,7 +41,17 @@ function readableSwapError(error: unknown) {
   return message || "Pool swap failed.";
 }
 
-export function SwapPanel({ address, provider, walletClient, balances = {}, balancesLoading = false, onConnect, setStatus }: SwapPanelProps) {
+export function SwapPanel({
+  address,
+  provider,
+  walletClient,
+  balances = {},
+  balancesLoading = false,
+  agentDraft,
+  onDismissAgentDraft,
+  onConnect,
+  setStatus
+}: SwapPanelProps) {
   const [from, setFrom] = useState<TokenSymbol>("USDC");
   const [to, setTo] = useState<TokenSymbol>("EURC");
   const [amount, setAmount] = useState("10");
@@ -48,6 +62,14 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
   const [previewError, setPreviewError] = useState("");
   const [slippage, setSlippage] = useState("0.5");
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
+
+  useEffect(() => {
+    if (!agentDraft || agentDraft.destination !== "swap" || agentDraft.action !== "swap") return;
+    setFrom(agentDraft.asset);
+    setTo(agentDraft.secondaryAsset ?? (agentDraft.asset === "USDC" ? "EURC" : "USDC"));
+    setAmount(agentDraft.amount);
+    setNotice(undefined);
+  }, [agentDraft?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,10 +149,12 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
   function reverseTokens() {
     setFrom(to);
     setTo(from);
+    onDismissAgentDraft?.();
   }
 
   function setMaxAmount() {
     setAmount(formatTokenAmount(balances[from] ?? 0n, ARC_TOKENS[from]));
+    onDismissAgentDraft?.();
   }
 
   async function execute() {
@@ -210,6 +234,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
           <h2>Swap</h2>
         </div>
       </div>
+      <AgentDraftNotice draft={agentDraft?.destination === "swap" ? agentDraft : undefined} onDismiss={onDismissAgentDraft} />
       <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
 
       <div className="swapPanelBody">
@@ -219,8 +244,8 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
             <b>{balancesLoading ? <i className="skeletonText small" /> : `Wallet ${fromBalance} ${from}`}</b>
           </div>
           <div className="tokenAmountMain">
-            <TokenSelect value={from} onChange={setFrom} tokens={PUBLIC_SWAP_TOKENS} />
-            <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" aria-label="Swap amount" />
+            <TokenSelect value={from} onChange={(value) => { setFrom(value); onDismissAgentDraft?.(); }} tokens={PUBLIC_SWAP_TOKENS} />
+            <input value={amount} onChange={(event) => { setAmount(event.target.value); onDismissAgentDraft?.(); }} inputMode="decimal" aria-label="Swap amount" />
             <button type="button" onClick={setMaxAmount}>MAX</button>
           </div>
         </div>
@@ -235,7 +260,7 @@ export function SwapPanel({ address, provider, walletClient, balances = {}, bala
             <b>{supportsPoolSwap(from, to) ? "Pool quote" : "Circle App Kit"}</b>
           </div>
           <div className="tokenAmountMain">
-            <TokenSelect value={to} onChange={setTo} tokens={PUBLIC_SWAP_TOKENS} />
+            <TokenSelect value={to} onChange={(value) => { setTo(value); onDismissAgentDraft?.(); }} tokens={PUBLIC_SWAP_TOKENS} />
             <strong>{previewLoading ? <i className="skeletonText" /> : preview ? `${preview} ${to}` : "--"}</strong>
             <button type="button" disabled>OUT</button>
           </div>

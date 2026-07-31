@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, BrainCircuit, Clock3, Database, RefreshCcw, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, BrainCircuit, CheckCircle2, Clock3, Database, ExternalLink, RefreshCcw, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Address } from "viem";
 import type { TokenSymbol } from "../lib/arc";
@@ -6,6 +6,8 @@ import { AgentTrace } from "./AgentTrace";
 import {
   buildAgentAnswer,
   loadAgentSnapshot,
+  type AgentActionDraft,
+  type AgentActivity,
   type AgentAnswer,
   type AgentDestination,
   type AgentSnapshot
@@ -15,19 +17,20 @@ type AgentPanelProps = {
   address?: Address;
   balances: Partial<Record<TokenSymbol, bigint>>;
   balancesLoading: boolean;
+  activity: AgentActivity[];
   onConnect: () => Promise<void>;
-  onNavigate: (destination: AgentDestination) => void;
+  onNavigate: (destination: AgentDestination, draft?: AgentActionDraft) => void;
 };
 
 const promptPresets = [
   "Review my portfolio",
   "Check lending risk",
-  "Find read-only yield",
+  "Find a guarded yield action",
   "Plan a USDC/EURC swap",
   "Prepare a bridge"
 ];
 
-export function AgentPanel({ address, balances, balancesLoading, onConnect, onNavigate }: AgentPanelProps) {
+export function AgentPanel({ address, balances, balancesLoading, activity, onConnect, onNavigate }: AgentPanelProps) {
   const [snapshot, setSnapshot] = useState<AgentSnapshot>();
   const [answer, setAnswer] = useState<AgentAnswer>();
   const [prompt, setPrompt] = useState("");
@@ -84,9 +87,9 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
     return (
       <section className="agentConnectState">
         <div className="agentOrb" aria-hidden="true"><BrainCircuit size={28} /></div>
-        <p className="eyebrow">Read-only Arc agent</p>
+        <p className="eyebrow">User-controlled Arc agent</p>
         <h2>Connect a wallet for account-aware guidance.</h2>
-        <p>The LumenFi Agent reads public Arc state to summarize balances, lending risk, swap preparation, yield options, and bridge readiness. It cannot sign transactions.</p>
+        <p>The LumenFi Agent reads public Arc state, builds a bounded action draft, and hands it to the connected wallet for review. It never signs transactions itself.</p>
         <button className="primaryButton" type="button" onClick={onConnect}>Connect wallet <ArrowRight size={17} /></button>
       </section>
     );
@@ -98,7 +101,7 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
         <div className="agentIdentity">
           <div className="agentOrb" aria-hidden="true"><Bot size={24} /></div>
           <div>
-            <p className="eyebrow">Arc blueprint, read-only beta</p>
+            <p className="eyebrow">Arc action planner, beta</p>
             <h2>LumenFi Agent</h2>
           </div>
           <span className="agentOnline"><i />Onchain reads</span>
@@ -106,7 +109,7 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
 
         <div className="agentBoundary">
           <ShieldCheck size={18} />
-          <div><strong>No signing capability</strong><span>Insights and action drafts only</span></div>
+          <div><strong>User approval boundary</strong><span>Agent drafts; the wallet validates and signs</span></div>
         </div>
 
         <form className="agentPrompt" onSubmit={submit}>
@@ -166,14 +169,40 @@ export function AgentPanel({ address, balances, balancesLoading, onConnect, onNa
             <AgentTrace snapshot={snapshot} />
 
             <div className="agentRecommendations">
-              <p className="agentSectionLabel">Suggested next steps</p>
+              <p className="agentSectionLabel">Prepared action plan</p>
               {answer.recommendations.map((item) => (
                 <article className={`agentRecommendation ${item.tone}`} key={`${item.destination}-${item.title}`}>
-                  <div><strong>{item.title}</strong><p>{item.description}</p></div>
-                  <button type="button" onClick={() => onNavigate(item.destination)}>{item.actionLabel}<ArrowRight size={15} /></button>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
+                    {item.draft && (
+                      <div className="agentDraftPreview">
+                        <span>{item.draft.action}</span>
+                        <b>{item.draft.amount} {item.draft.asset}{item.draft.secondaryAsset ? ` → ${item.draft.secondaryAsset}` : ""}</b>
+                        <small>{item.draft.expectedOutcome}</small>
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => onNavigate(item.destination, item.draft)}>{item.actionLabel}<ArrowRight size={15} /></button>
                 </article>
               ))}
             </div>
+
+            {activity.length > 0 && (
+              <section className="agentActivity" aria-label="Recent agent-assisted transactions">
+                <div className="agentActivityHeader">
+                  <div><CheckCircle2 size={16} /><span>Verified outcomes</span></div>
+                  <small>Wallet-approved transactions</small>
+                </div>
+                {activity.slice(0, 3).map((item) => (
+                  <a href={`https://testnet.arcscan.app/tx/${item.txHash}`} target="_blank" rel="noreferrer" key={item.id}>
+                    <span><strong>{item.title}</strong><small>{new Date(item.completedAt).toLocaleString()}</small></span>
+                    <code>{item.txHash.slice(0, 8)}...{item.txHash.slice(-6)}</code>
+                    <ExternalLink size={13} />
+                  </a>
+                ))}
+              </section>
+            )}
 
             <footer className="agentEvidence">
               <span><Database size={14} />{snapshot.blockNumber ? `Arc block ${snapshot.blockNumber}` : "Block unavailable"}</span>

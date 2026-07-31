@@ -132,26 +132,28 @@ export async function poolReserves() {
     return null;
   }
 
-  const usdcReserve = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: getTokenAddress("USDC"),
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [swapPoolAddress]
-      }),
-    "USDC reserve"
-  );
-  const eurcReserve = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: getTokenAddress("EURC"),
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [swapPoolAddress]
-      }),
-    "EURC reserve"
-  );
+  const [usdcReserve, eurcReserve] = await Promise.all([
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: getTokenAddress("USDC"),
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [swapPoolAddress]
+        }),
+      "USDC reserve"
+    ),
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: getTokenAddress("EURC"),
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [swapPoolAddress]
+        }),
+      "EURC reserve"
+    )
+  ]);
 
   return { usdcReserve, eurcReserve };
 }
@@ -161,18 +163,19 @@ export async function poolPosition(account?: Address) {
     return null;
   }
 
-  const reserves = await poolReserves();
-  const totalSupply = await readWithRetry(
-    () =>
-      arcPublicClient.readContract({
-        address: swapPoolAddress,
-        abi: swapPoolAbi,
-        functionName: "totalSupply"
-      }),
-    "LP total supply"
-  );
-  const lpBalance = account
-    ? await readWithRetry(
+  const [reserves, totalSupply, lpBalance] = await Promise.all([
+    poolReserves(),
+    readWithRetry(
+      () =>
+        arcPublicClient.readContract({
+          address: swapPoolAddress,
+          abi: swapPoolAbi,
+          functionName: "totalSupply"
+        }),
+      "LP total supply"
+    ),
+    account
+      ? readWithRetry(
         () =>
           arcPublicClient.readContract({
             address: swapPoolAddress,
@@ -182,7 +185,8 @@ export async function poolPosition(account?: Address) {
           }),
         "LP balance"
       )
-    : 0n;
+      : Promise.resolve(0n)
+  ]);
 
   return {
     usdcReserve: reserves?.usdcReserve ?? 0n,
@@ -358,7 +362,7 @@ export async function poolSwap(walletClient: WalletClient, owner: Address, from:
     await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
   }
 
-  const swapHash = await walletClient.writeContract({
+  const { request } = await arcPublicClient.simulateContract({
     address: swapPoolAddress,
     abi: swapPoolAbi,
     functionName: "swap",
@@ -366,6 +370,7 @@ export async function poolSwap(walletClient: WalletClient, owner: Address, from:
     account: owner,
     chain: arcTestnet
   });
+  const swapHash = await walletClient.writeContract(request);
 
   return arcPublicClient.waitForTransactionReceipt({ hash: swapHash });
 }

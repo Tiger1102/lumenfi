@@ -1864,6 +1864,130 @@ main {
 }
 
 /* Agent */
+.agentDraftNotice {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 15px 13px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(107 214 182 / 0.08), transparent 38%),
+    #091117;
+}
+
+.agentDraftNoticeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agentDraftNoticeHeader > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.agentDraftNoticeHeader button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+}
+
+.agentDraftNoticeHeader button:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.agentDraftNoticeBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  gap: 18px;
+  align-items: end;
+}
+
+.agentDraftNoticeBody > div > strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 590;
+  letter-spacing: -0.02em;
+}
+
+.agentDraftNoticeBody > div > p {
+  max-width: 64ch;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.agentDraftNotice dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-left: 1px solid var(--line);
+}
+
+.agentDraftNotice dl > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 12px;
+}
+
+.agentDraftNotice dt {
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.agentDraftNotice dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 570;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentDraftChecks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.agentDraftChecks span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.agentDraftChecks svg {
+  color: var(--success);
+}
+
+.agentDraftBoundary {
+  color: var(--faint);
+  font-size: 10px;
+}
+
 .agentPage {
   display: grid;
   gap: 22px;
@@ -2295,6 +2419,37 @@ main {
   line-height: 1.55;
 }
 
+.agentDraftPreview {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px 10px;
+  margin-top: 10px;
+}
+
+.agentDraftPreview span {
+  padding: 3px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--accent-strong);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.agentDraftPreview b {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.agentDraftPreview small {
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .agentRecommendation button {
   display: inline-flex;
   align-items: center;
@@ -2325,6 +2480,74 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.agentActivity {
+  display: grid;
+  gap: 0;
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.agentActivityHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0 9px;
+}
+
+.agentActivityHeader > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 580;
+}
+
+.agentActivityHeader svg {
+  color: var(--success);
+}
+
+.agentActivityHeader small {
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.agentActivity > a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-top: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.agentActivity > a:hover strong {
+  color: var(--accent-strong);
+}
+
+.agentActivity > a > span {
+  display: grid;
+  gap: 2px;
+}
+
+.agentActivity > a strong {
+  font-size: 10px;
+  font-weight: 560;
+}
+
+.agentActivity > a small,
+.agentActivity > a code {
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.agentActivity > a > svg {
+  color: var(--faint);
 }
 
 .agentLoading,
@@ -3059,6 +3282,38 @@ main {
 
   .buttonRow {
     flex-direction: column;
+  }
+
+  .agentDraftNoticeBody,
+  .agentDraftPreview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agentDraftNotice dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .agentDraftNotice dl > div {
+    grid-template-columns: 80px minmax(0, 1fr);
+    align-items: center;
+    padding-left: 0;
+  }
+
+  .agentDraftPreview span,
+  .agentDraftPreview b {
+    width: fit-content;
+  }
+
+  .agentActivity > a {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .agentActivity > a code {
+    display: none;
   }
 
   .agentPageHeader {

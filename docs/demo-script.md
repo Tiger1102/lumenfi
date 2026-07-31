@@ -18,7 +18,7 @@
 - The stablecoin pool has active reserves and a working quote.
 - LendingPool lists USDC and EURC and enforces LTV / health checks.
 - Repo is public, licensed, and includes contract tests.
-- The AI Agent page performs live read-only portfolio, lending risk, yield, swap, and bridge analysis from Arc state, with an expandable trace showing wallet, lending, pool, price, and block evidence. Future execution permissions remain separately gated.
+- The AI Agent page performs live portfolio, lending risk, yield, swap, and bridge analysis from Arc state, with an expandable evidence trace. It can prepare and prefill a bounded market action, while the connected wallet must review and sign every transaction.
 
 ## Submission links
 
