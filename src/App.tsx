@@ -1,9 +1,7 @@
-import { Activity, ArrowRight, ArrowRightLeft, BrainCircuit, CheckCircle2, ChevronDown, Copy, ExternalLink, Landmark, Layers3, PlugZap, ShieldCheck, X, Zap } from "lucide-react";
+import { Activity, ArrowRight, ArrowRightLeft, ChevronDown, Copy, ExternalLink, Landmark, Layers3, PlugZap, ShieldCheck, Zap } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
-import projectSubmission from "../docs/project-submission.md?raw";
-import whitepaper from "../docs/whitepaper.md?raw";
-import { MarkdownDoc } from "./components/MarkdownDoc";
+import { DocsPage } from "./components/DocsPage";
 import { roadmapItems } from "./content/roadmap";
 import type { AgentActionDraft, AgentActivity, AgentDestination } from "./lib/agent";
 import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
@@ -18,20 +16,22 @@ const PoolLiquidityPanel = lazy(() => import("./components/PoolLiquidityPanel").
 const SwapPanel = lazy(() => import("./components/SwapPanel").then((module) => ({ default: module.SwapPanel })));
 
 type StatusState = { state: "idle" | "loading" | "success" | "error"; message: string; txHash?: string };
-type Page = "overview" | "app" | "bridge" | "agent";
+type Page = "overview" | "app" | "bridge" | "agent" | "docs";
 type MarketTab = "swap" | "pool" | "lending";
 
 const pagePaths: Record<Page, string> = {
   overview: "/",
   app: "/market",
   bridge: "/bridge",
-  agent: "/agent"
+  agent: "/agent",
+  docs: "/docs"
 };
 
 function pageFromPath(pathname: string): Page {
   if (pathname === "/market" || pathname === "/markets" || pathname === "/app") return "app";
   if (pathname === "/bridge") return "bridge";
   if (pathname === "/agent") return "agent";
+  if (pathname === "/docs") return "docs";
   return "overview";
 }
 
@@ -68,19 +68,6 @@ const marketMetrics = [
   ["Receipts", "Inline", "Explorer-ready"]
 ];
 
-const heroProofPoints = [
-  "Public contracts",
-  "Inline transaction receipts",
-  "Permissionless LP access",
-  "Arc Testnet"
-];
-
-const workspaceTrustItems = [
-  "Public contract links",
-  "Explorer-ready receipts",
-  "Wallet balance refresh"
-];
-
 const marketTabs: { id: MarketTab; label: string }[] = [
   { id: "swap", label: "Swap" },
   { id: "pool", label: "Liquidity Pools" },
@@ -102,7 +89,6 @@ export default function App() {
   const [wallet, setWallet] = useState<ConnectedWallet>();
   const [balances, setBalances] = useState<Partial<Record<TokenSymbol, bigint>>>({});
   const [status, setStatusState] = useState<StatusState>({ state: "idle", message: "" });
-  const [activeDoc, setActiveDoc] = useState<"whitepaper" | "submission" | null>(null);
   const [page, setPageState] = useState<Page>(() => pageFromPath(window.location.pathname));
   const [balancePopoverOpen, setBalancePopoverOpen] = useState(false);
   const [isArcNetwork, setIsArcNetwork] = useState(true);
@@ -111,7 +97,6 @@ export default function App() {
   const [agentDraft, setAgentDraft] = useState<AgentActionDraft>();
   const [agentActivity, setAgentActivity] = useState<AgentActivity[]>(readAgentActivity);
   const balancePopoverRef = useRef<HTMLDivElement>(null);
-  const docModalRef = useRef<HTMLDivElement>(null);
 
   const totalBalance = useMemo(() => {
     const usdc = Number(formatTokenAmount(balances.USDC ?? 0n, ARC_TOKENS.USDC));
@@ -201,14 +186,8 @@ export default function App() {
   }
 
   function openRoadmap() {
-    setActiveDoc(null);
     setPage("overview");
     window.setTimeout(() => document.getElementById("roadmap")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-  }
-
-  function openDoc(doc: "whitepaper" | "submission") {
-    setPage("overview");
-    window.setTimeout(() => setActiveDoc(doc), 50);
   }
 
   function openAgentDestination(destination: AgentDestination, draft?: AgentActionDraft) {
@@ -281,6 +260,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const titles: Record<Page, string> = {
+      overview: "LumenFi | Stablecoin markets for Arc",
+      app: "Markets | LumenFi",
+      bridge: "Bridge USDC | LumenFi",
+      agent: "Onchain agent | LumenFi",
+      docs: "Documentation | LumenFi"
+    };
+    document.title = titles[page];
+  }, [page]);
+
+  useEffect(() => {
     if (status.state === "idle" || status.state === "loading" || !status.message) return;
     const timer = window.setTimeout(() => setStatusState({ state: "idle", message: "" }), 5_000);
     return () => window.clearTimeout(timer);
@@ -321,7 +311,6 @@ export default function App() {
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setBalancePopoverOpen(false);
-        setActiveDoc(null);
       }
     }
 
@@ -332,11 +321,6 @@ export default function App() {
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
-
-  useEffect(() => {
-    if (!activeDoc) return;
-    window.requestAnimationFrame(() => docModalRef.current?.focus());
-  }, [activeDoc]);
 
   return (
     <main>
@@ -350,10 +334,10 @@ export default function App() {
           <button className={page === "overview" ? "active" : ""} type="button" onClick={() => setPage("overview")}>Overview</button>
           <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
           <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
-          <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>AI Agent</button>
+          <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>Agent</button>
           <button type="button" onClick={openRoadmap}>Roadmap</button>
           <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">Faucet</a>
-          <button type="button" onClick={() => openDoc("whitepaper")}>Docs</button>
+          <button className={page === "docs" ? "active" : ""} type="button" onClick={() => setPage("docs")}>Docs</button>
         </nav>
         <div className="headerRight">
           {wallet && (
@@ -425,6 +409,7 @@ export default function App() {
         <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
         <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
         <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>Agent</button>
+        <button className={page === "docs" ? "active" : ""} type="button" onClick={() => setPage("docs")}>Docs</button>
       </nav>
 
       <div id="page-content" tabIndex={-1}>
@@ -442,22 +427,16 @@ export default function App() {
             <div className="heroTerminal" aria-label="LumenFi market status">
               <div className="terminalHeader"><div><span>Market status</span><strong>Arc Testnet</strong></div><Activity size={20} /></div>
               <div className="snapshotGrid">
-                <div><span>Supported assets</span><strong>USDC / EURC / cirBTC</strong></div>
+                <div><span>Market assets</span><strong>USDC / EURC</strong></div>
                 <div><span>Liquidity route</span><strong>LumenFi pool</strong></div>
                 <div><span>Credit market</span><strong>Deployed</strong></div>
-                <div><span>Gas model</span><strong>USDC</strong></div>
-                <div><span>Deployment</span><strong>Cloudflare Pages</strong></div>
-                <div><span>Transaction feedback</span><strong>Inline receipts</strong></div>
+                <div><span>Contracts</span><strong>2 deployed</strong></div>
               </div>
               <div className="heroStats" aria-label="Project status">
                 <div><Zap size={18} /><span>Gas token</span><strong>USDC</strong></div>
                 <div><ShieldCheck size={18} /><span>Chain ID</span><strong>5042002</strong></div>
-                <a href="https://lumenfi.click" target="_blank" rel="noreferrer"><ExternalLink size={18} /><span>Live app</span><strong>Open</strong></a>
               </div>
             </div>
-          </section>
-          <section className="heroProofList heroProofBar" aria-label="LumenFi product highlights">
-            {heroProofPoints.map((item) => <span key={item}><CheckCircle2 size={15} />{item}</span>)}
           </section>
 
           <section className="sectionBlock">
@@ -508,7 +487,7 @@ export default function App() {
           </section>
 
           <section id="roadmap" className="sectionBlock roadmapPage" aria-label="LumenFi roadmap">
-            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to accountable agents.</h2><p>The action-planning agent is live with wallet-controlled execution. Identity, task settlement, and scoped automation remain separately gated milestones.</p></div>
+            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to controlled automation.</h2><p>The action agent is live with wallet-controlled execution. Stronger evidence, simulation, and permission policies remain separate milestones.</p></div>
             <div className="roadmapGrid">
               {roadmapItems.map((item) => (
                 <article className="roadmapCard" key={item.phase}>
@@ -526,16 +505,12 @@ export default function App() {
           <div className="dashboardHeader">
             <div>
               <p className="eyebrow">Markets</p>
-              <h2>Arc stablecoin workspace</h2>
+              <h1>Arc stablecoin workspace</h1>
             </div>
           </div>
           <div className="metricDeck" aria-label="LumenFi key metrics">
             {marketMetrics.map(([label, value, note]) => <div key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p></div>)}
           </div>
-          <div className="trustStrip proMaxTrust" aria-label="Workspace quality controls">
-            {workspaceTrustItems.map((item) => <span key={item}>{item}</span>)}
-          </div>
-
           <div className="proSections">
             <div className="moduleTabs" aria-label="Market modules">
               {marketTabs.map((tab) => (
@@ -587,16 +562,9 @@ export default function App() {
           <div className="dashboardHeader">
             <div>
               <p className="eyebrow">Bridge</p>
-              <h2>Move USDC across supported testnet networks.</h2>
+              <h1>Move USDC across supported testnet networks.</h1>
             </div>
           </div>
-          <div className="trustStrip proMaxTrust bridgeTrust" aria-label="Bridge quality controls">
-            <span>Source and destination chains</span>
-            <span>Arc destination context</span>
-            <span>USDC route preparation</span>
-            <strong><BrainCircuit size={16} />Designed for guided bridge execution and future assistant support.</strong>
-          </div>
-
           <div className="bridgeWorkspace single">
             <Suspense fallback={<ModuleFallback label="Loading bridge module..." />}>
               <BridgePanel
@@ -609,12 +577,12 @@ export default function App() {
             </Suspense>
           </div>
         </section>
-      ) : (
+      ) : page === "agent" ? (
         <section className="dashboardShell agentPage">
           <div className="dashboardHeader agentPageHeader">
             <div>
               <p className="eyebrow">User-controlled Arc intelligence</p>
-              <h2>From onchain evidence to an executable draft</h2>
+              <h1>From onchain evidence to an executable draft</h1>
               <p>Ask for portfolio, lending, yield, swap, or bridge guidance. The agent prepares bounded actions from live contract state; your wallet reviews and signs every transaction.</p>
             </div>
             <a href="https://docs.arc.io/build/agentic-economy" target="_blank" rel="noreferrer">Arc agentic economy <ExternalLink size={15} /></a>
@@ -630,10 +598,10 @@ export default function App() {
             />
           </Suspense>
         </section>
+      ) : (
+        <DocsPage />
       )}
       </div>
-
-      {activeDoc && <div className="docOverlay" role="dialog" aria-modal="true" aria-label={activeDoc === "whitepaper" ? "Whitepaper" : "Submission"}><div className="docModal" ref={docModalRef} tabIndex={-1}><div className="docHeader"><div><p className="eyebrow">LumenFi docs</p><h2>{activeDoc === "whitepaper" ? "Whitepaper" : "Project submission"}</h2></div><button className="iconButton" type="button" onClick={() => setActiveDoc(null)} title="Close document" aria-label="Close document"><X size={18} /></button></div><MarkdownDoc content={activeDoc === "whitepaper" ? whitepaper : projectSubmission} /></div></div>}
 
       {status.message && <div className={`systemToast ${status.state}`} role="status"><span>{status.message}</span>{status.txHash && <a href={`https://testnet.arcscan.app/tx/${status.txHash}`} target="_blank" rel="noreferrer">View transaction</a>}<button type="button" onClick={() => setStatusState({ state: "idle", message: "" })}>Close</button></div>}
 
@@ -643,8 +611,7 @@ export default function App() {
           <div className="footerColumns">
             <nav className="footerColumn" aria-label="Resources links">
               <p>Resources</p>
-              <button type="button" onClick={() => openDoc("whitepaper")}>Whitepaper</button>
-              <button type="button" onClick={() => openDoc("submission")}>Submission</button>
+              <button type="button" onClick={() => setPage("docs")}>Documentation</button>
               <a href="https://docs.arc.io/build" target="_blank" rel="noreferrer">Arc Docs</a>
               <a href="https://testnet.arcscan.app" target="_blank" rel="noreferrer">Arc Explorer</a>
             </nav>

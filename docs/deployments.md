@@ -1,6 +1,6 @@
 # LumenFi Deployments
 
-## Arc Testnet - June 30, 2026
+## Arc Testnet — August 2, 2026
 
 Deployer:
 
@@ -12,7 +12,7 @@ Contracts:
 
 ```text
 LendingPool: 0x474552ce815a68443bdfcafd089cdb345791d204
-PermissionlessStablePool: 0xfd34e43021f20f585db8f078471c7107d8d1da30
+PermissionlessStablePool: 0x212622812664e37abbb99774ee7488bc721b38b3
 ```
 
 Deployment checks:
@@ -21,14 +21,14 @@ Deployment checks:
 - USDC and EURC token references resolve on Arc Testnet.
 - LendingPool lists USDC and EURC with 6 decimals.
 - PermissionlessStablePool uses a 30 bps swap fee.
-- The deploy script skipped automatic seeding because the deployer did not hold both tokens at deploy time.
-- Liquidity was added after deployment.
-- Latest local check observed `300 USDC` and `217.654226 EURC` in pool reserves.
-- Latest local check observed a working 1 USDC quote: `0.720941 EURC`.
+- Swap writes enforce minimum received and a transaction deadline.
+- Add and remove liquidity writes enforce minimum outputs.
+- LP shares use 6 display decimals, matching the scale minted from the USDC/EURC pair.
+- Initial reserves are `5 USDC` and `5 EURC`.
 
 Arc Explorer:
 
 ```text
 https://testnet.arcscan.app/address/0x474552ce815a68443bdfcafd089cdb345791d204
-https://testnet.arcscan.app/address/0xfd34e43021f20f585db8f078471c7107d8d1da30
+https://testnet.arcscan.app/address/0x212622812664e37abbb99774ee7488bc721b38b3
 ```

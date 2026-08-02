@@ -96,7 +96,7 @@ export function AgentPanel({ address, balances, balancesLoading, activity, onCon
   }
 
   return (
-    <section className="agentWorkspace" aria-label="LumenFi AI Agent">
+    <section className="agentWorkspace" aria-label="LumenFi onchain agent">
       <div className="agentCommand">
         <div className="agentIdentity">
           <div className="agentOrb" aria-hidden="true"><Bot size={24} /></div>

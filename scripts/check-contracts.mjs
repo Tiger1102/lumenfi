@@ -32,12 +32,14 @@ const client = {
   readContract: (args) => runRpc("readContract", args),
   estimateGas: (args) => runRpc("estimateGas", args),
   estimateFeesPerGas: (args) => runRpc("estimateFeesPerGas", args),
-  getBalance: (args) => runRpc("getBalance", args)
+  getBalance: (args) => runRpc("getBalance", args),
+  simulateContract: (args) => runRpc("simulateContract", args)
 };
 const lending = "0x474552ce815a68443bdfcafd089cdb345791d204";
-const swap = "0xfd34e43021f20f585db8f078471c7107d8d1da30";
+const swap = "0x212622812664e37abbb99774ee7488bc721b38b3";
 const usdc = "0x3600000000000000000000000000000000000000";
 const eurc = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
+const readinessAccount = "0x5bc6225a3D4150d49BD6A199C9235d72eCaEb691";
 
 const erc20 = parseAbi([
   "function symbol() view returns (string)",
@@ -49,8 +51,10 @@ const stable = parseAbi([
   "function usdc() view returns (address)",
   "function eurc() view returns (address)",
   "function FEE_BPS() view returns (uint256)",
+  "function decimals() view returns (uint8)",
   "function totalSupply() view returns (uint256)",
-  "function quote(address,uint256) view returns (address,uint256)"
+  "function quote(address,uint256) view returns (address,uint256)",
+  "function swap(address,uint256,uint256,uint256) returns (address,uint256)"
 ]);
 const lend = parseAbi([
   "function owner() view returns (address)",
@@ -88,10 +92,11 @@ async function main() {
 
   console.log("tokens", { usdcSymbol, eurcSymbol, usdcDecimals, eurcDecimals });
 
-  const [swapUsdc, swapEurc, feeBps, lpTotalSupply, swapUsdcBalance, swapEurcBalance] = await Promise.all([
+  const [swapUsdc, swapEurc, feeBps, lpDecimals, lpTotalSupply, swapUsdcBalance, swapEurcBalance] = await Promise.all([
     client.readContract({ address: swap, abi: stable, functionName: "usdc" }),
     client.readContract({ address: swap, abi: stable, functionName: "eurc" }),
     client.readContract({ address: swap, abi: stable, functionName: "FEE_BPS" }),
+    client.readContract({ address: swap, abi: stable, functionName: "decimals" }),
     client.readContract({ address: swap, abi: stable, functionName: "totalSupply" }),
     client.readContract({ address: usdc, abi: erc20, functionName: "balanceOf", args: [swap] }),
     client.readContract({ address: eurc, abi: erc20, functionName: "balanceOf", args: [swap] })
@@ -101,6 +106,7 @@ async function main() {
     usdc: swapUsdc,
     eurc: swapEurc,
     feeBps: feeBps.toString(),
+    lpDecimals,
     lpTotalSupply: lpTotalSupply.toString(),
     usdcBalance: formatUnits(swapUsdcBalance, 6),
     eurcBalance: formatUnits(swapEurcBalance, 6)
@@ -112,6 +118,15 @@ async function main() {
   } else {
     console.log("quote 1 USDC", "skipped: pool needs initial USDC and EURC liquidity");
   }
+
+  let expiryProtection = false;
+  try {
+    await client.simulateContract({ address: swap, abi: stable, functionName: "swap", args: [usdc, 1_000_000n, 0n, 1n], account: readinessAccount });
+  } catch (error) {
+    expiryProtection = String(error).includes("EXPIRED");
+  }
+  if (!expiryProtection) throw new Error("Deployed pool expiry protection was not detected.");
+  console.log("swap protections", { expiryProtection });
 
   const [owner, ltv, liqThreshold, liqBonus, usdcListed, eurcListed, usdcAssetDecimals, eurcAssetDecimals, usdcPrice, eurcPrice, usdcSupply, eurcSupply, usdcBorrowed, eurcBorrowed, lendingUsdcBalance, lendingEurcBalance] = await Promise.all([
     client.readContract({ address: lending, abi: lend, functionName: "owner" }),

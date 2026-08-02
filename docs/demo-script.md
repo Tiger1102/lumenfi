@@ -18,7 +18,7 @@
 - The stablecoin pool has active reserves and a working quote.
 - LendingPool lists USDC and EURC and enforces LTV / health checks.
 - Repo is public, licensed, and includes contract tests.
-- The AI Agent page performs live portfolio, lending risk, yield, swap, and bridge analysis from Arc state, with an expandable evidence trace. It can prepare and prefill a bounded market action, while the connected wallet must review and sign every transaction.
+- The Agent page reads portfolio, lending risk, pool, and block evidence from Arc. It prepares a bounded action draft while the connected wallet remains the only signer.
 
 ## Submission links
 
@@ -28,4 +28,4 @@ GitHub: https://github.com/Tiger1102/lumenfi
 
 LendingPool: https://testnet.arcscan.app/address/0x474552ce815a68443bdfcafd089cdb345791d204
 
-PermissionlessStablePool: https://testnet.arcscan.app/address/0xfd34e43021f20f585db8f078471c7107d8d1da30
+PermissionlessStablePool: https://testnet.arcscan.app/address/0x212622812664e37abbb99774ee7488bc721b38b3

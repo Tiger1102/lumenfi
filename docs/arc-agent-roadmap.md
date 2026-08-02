@@ -1,96 +1,58 @@
-# LumenFi Arc agent roadmap
+# LumenFi agent roadmap
 
-This roadmap maps the original LumenFi Arc Blueprint concept to a working action-planning agent and the current Arc agentic economy standards. Each phase has a separately verifiable capability boundary.
+This roadmap separates capabilities that are live from work that still requires design, security review, or external infrastructure.
 
-## Current boundary
+## Live: onchain action planner
 
-LumenFi now runs a user-controlled account agent. It reads wallet balances, lending state, pool reserves, prices, and the latest Arc block; produces portfolio, risk, yield, swap, and bridge guidance; and prepares bounded actions with prefilled values. It does not approve or sign transactions.
+The current agent reads Arc state and prepares bounded user actions.
 
-Agent features must progress from read-only analysis to narrowly authorized execution. No phase grants an agent unrestricted custody or unlimited transaction authority.
+- Wallet balances for USDC and EURC.
+- Lending collateral, debt, available borrow, and health.
+- Pool reserves and current Arc block evidence.
+- Supply, repay, swap, and bridge drafts with explicit amounts.
+- Live revalidation inside the destination module.
+- Wallet approval and signing for every transaction.
 
-## Phase 06: AI action planner - live
+The agent cannot access private keys, approve tokens, or execute in the background.
 
-Goal: deliver onchain-grounded guidance that can become a reviewable, user-approved market action.
+## Next: stronger evidence and simulation
 
-- Read wallet USDC and EURC balances.
-- Read collateral, debt, borrow capacity, health factor, supplied assets, pool reserves, and the latest Arc block.
-- Answer portfolio, risk, yield, passive management, swap, and bridge prompts.
-- Prepare bounded repay, supply, swap, and bridge drafts from observed account state.
-- Prefill the relevant user-controlled LumenFi module.
-- Revalidate amount, balance, allowance, quote, and route state in the destination module, and simulate supported contract writes before signing.
-- Leave every approval and signature to the connected wallet.
-- Store explorer-linked receipts for completed agent-assisted transactions.
+- Record the exact block, contract addresses, inputs, and assumptions used for each recommendation.
+- Show expected balance and health changes before the wallet opens.
+- Reject stale drafts after a bounded block or time window.
+- Add structured tests for every intent and degraded-data path.
 
-Acceptance criteria:
+## Next: model-assisted explanation
 
-- A connected wallet receives an account brief sourced from live Arc reads.
-- Every brief shows its observed block, timestamp, and partial-read warnings.
-- RPC failures render an inline retry state instead of blocking the interface.
-- Recommendations clearly distinguish displayed market rates from guaranteed returns.
-- Drafts show their source block, rationale, expected outcome, and safety checks.
-- The agent never receives custody or signing authority.
+A server-side reasoning layer may translate natural-language requests into a strict action schema. Contract reads, limits, and transaction construction remain deterministic tools rather than model-generated calldata.
 
-Arc references:
+Required controls:
 
-- Agentic economy: https://docs.arc.io/build/agentic-economy
-- Build overview: https://docs.arc.io/build
+- Schema-validated tool calls.
+- No browser-exposed model credentials.
+- Prompt-injection and untrusted-content boundaries.
+- Deterministic policy checks after model output.
+- Complete traces for inputs, tools, and final drafts.
 
-## Phase 07: ERC-8004 agent identity
+## Research: permissioned execution
 
-Goal: give the LumenFi agent a verifiable onchain identity.
+Future automation must use a restricted smart-wallet policy rather than unrestricted custody.
 
-- Publish versioned agent metadata.
-- Register through the Arc Testnet ERC-8004 IdentityRegistry.
-- Display agent ID, owner, metadata URI, reputation, and validation status.
-- Keep all portfolio and risk outputs read-only.
+- Contract and function allowlists.
+- Per-action and daily USDC limits.
+- Expiry and immediate revocation.
+- Simulation before execution.
+- Explicit user confirmation for financial actions.
+- Emergency pause and activity monitoring.
 
-Acceptance criteria:
+## Not planned for the current release
 
-- Registration transaction is linked on Arcscan.
-- The UI can read `ownerOf`, `tokenURI`, reputation feedback, and validation state.
-- Agent version and capabilities are visible and auditable.
+- Unrestricted autonomous trading.
+- Custody of user keys.
+- Background borrowing or leverage changes.
+- Production financial advice.
+- Mainnet deployment before audits and risk infrastructure.
 
-Arc references:
+## Acceptance criteria
 
-- IdentityRegistry: `0x8004A818BFB912233c491871b3d84c89A494BD9e`
-- ReputationRegistry: `0x8004B663056A597Dffe9eCcC1965A193B7388713`
-- ValidationRegistry: `0x8004Cb1BF31DAf7788923b405b754f57acEB4272`
-- Guide: https://docs.arc.io/arc/tutorials/register-your-first-ai-agent
-
-## Phase 08: ERC-8183 USDC jobs
-
-Goal: support accountable agent work with escrow and evaluator approval.
-
-- Create a job with provider, evaluator, expiry, and description.
-- Set the budget and fund escrow in USDC.
-- Submit a deliverable hash.
-- Complete or reject the job through the evaluator role.
-- Display job state and settlement transactions in LumenFi.
-
-Acceptance criteria:
-
-- The UI represents Open, Funded, Submitted, Completed, Rejected, and Expired states.
-- Budget and escrow balances use six-decimal ERC-20 USDC values.
-- Deliverables are content-addressed and independently verifiable.
-
-Arc references:
-
-- AgenticCommerce reference implementation: `0x0747EEf0706327138c69792bF28Cd525089e4583`
-- Guide: https://docs.arc.io/arc/tutorials/create-your-first-erc-8183-job
-
-## Phase 09: permissioned automation
-
-Goal: extend today's user-approved drafts with narrowly scoped automation without creating an unrestricted trading agent.
-
-- Evaluate smart wallets, paymasters, and session keys.
-- Allowlist contract addresses and function selectors.
-- Apply per-action and daily USDC limits.
-- Require expiry, revocation, simulation, and explicit confirmation.
-- Log every proposed and submitted action.
-
-No production execution is permitted without contract audits, monitoring, incident response, and a legal and compliance review.
-
-Arc references:
-
-- Account abstraction: https://docs.arc.io/arc/tools/account-abstraction
-- Agentic economy: https://docs.arc.io/build/agentic-economy
+Each roadmap item must have a visible product state, a reproducible test, and an explorer-verifiable result where an onchain action is involved. A feature is not marked live because a control exists in the interface.

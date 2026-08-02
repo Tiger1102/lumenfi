@@ -214,6 +214,14 @@ try {
   results.push(await inspect(session, "agent-mobile"));
   await capture(session, "agent-mobile");
 
+  await navigate(session, "/docs", { width: 1440, height: 1000, mobile: false });
+  results.push(await inspect(session, "docs-desktop"));
+  await capture(session, "docs-desktop");
+
+  await navigate(session, "/docs", { width: 390, height: 844, mobile: true });
+  results.push(await inspect(session, "docs-mobile"));
+  await capture(session, "docs-mobile");
+
   console.log(JSON.stringify(results, null, 2));
   session.socket.close();
 } finally {

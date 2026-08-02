@@ -195,7 +195,7 @@ export function SwapPanel({
       try {
         setNotice({ status: "loading", message: "Waiting for wallet approval..." });
         setStatus("Swap transaction pending.", "loading");
-        const receipt = await poolSwap(walletClient, address, from, to, amount);
+        const receipt = await poolSwap(walletClient, address, from, to, amount, Math.round(slippageValue * 100));
         setNotice({ status: "success", message: "Confirmed.", txHash: receipt.transactionHash });
         setStatus("Swap confirmed.", "success", receipt.transactionHash);
         return;

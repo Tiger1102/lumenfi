@@ -29,6 +29,7 @@ describe("LumenFi contracts", async function () {
     await pool.write.addLiquidity([parseUnits("300", 6), parseUnits("300", 6), 1n]);
 
     assert.equal(await pool.read.totalSupply(), parseUnits("300", 6));
+    assert.equal(await pool.read.decimals(), 6);
     assert.equal(await usdc.read.balanceOf([pool.address]), parseUnits("300", 6));
     assert.equal(await eurc.read.balanceOf([pool.address]), parseUnits("300", 6));
 
@@ -37,10 +38,20 @@ describe("LumenFi contracts", async function () {
 
     await usdc.write.approve([pool.address, parseUnits("10", 6)], { account: alice.account });
     const aliceEurcBefore = await eurc.read.balanceOf([alice.account.address]);
-    await pool.write.swap([usdc.address, parseUnits("10", 6)], { account: alice.account });
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+    await pool.write.swap([usdc.address, parseUnits("10", 6), amountOut * 99n / 100n, deadline], { account: alice.account });
     const aliceEurcAfter = await eurc.read.balanceOf([alice.account.address]);
 
     assert.ok(aliceEurcAfter > aliceEurcBefore);
+
+    await assert.rejects(
+      pool.write.swap([usdc.address, parseUnits("1", 6), parseUnits("100", 6), deadline], { account: alice.account }),
+      /SLIPPAGE/
+    );
+    await assert.rejects(
+      pool.write.swap([usdc.address, parseUnits("1", 6), 0n, 1n], { account: alice.account }),
+      /EXPIRED/
+    );
 
     const shares = await pool.read.balanceOf([deployer.account.address]);
     await pool.write.removeLiquidity([shares / 2n, 1n, 1n, deployer.account.address]);
