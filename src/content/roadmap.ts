@@ -34,19 +34,19 @@ export const roadmapItems: RoadmapItem[] = [
     phase: "05",
     title: "Market depth and analytics",
     status: "Live",
-    copy: "Added live pool depth, LP supply, reserve analytics, pool rate, swap fee visibility, route estimates, minimum received, and price-impact context for USDC/EURC market actions."
+    copy: "Added total pool liquidity, LP positions, reserve analytics, pool rate, swap fee visibility, live quotes, minimum received, and price impact for USDC/EURC market actions."
   },
   {
     phase: "06",
     title: "Onchain action agent",
     status: "Live",
-    copy: "Reads live Arc balances, lending positions, pool reserves, prices, and block evidence; then prepares bounded repay, supply, swap, or bridge actions with prefilled values and mandatory wallet confirmation."
+    copy: "Reads live Arc balances, lending positions, pool reserves, prices, and block evidence; prepares bounded repay, supply, swap, or bridge actions; and withholds position-changing drafts when required evidence is incomplete."
   },
   {
     phase: "07",
     title: "Signed permission controls",
     status: "Live",
-    copy: "Wallet-signed policies now constrain Agent drafts with action allowlists, per-action and rolling daily USDC-equivalent limits, expiry, immediate revocation, block freshness, and a final preflight before execution."
+    copy: "Wallet-signed policies constrain Agent drafts with action allowlists, per-action and rolling daily USDC-equivalent limits, expiry, local revocation, block freshness, wallet-scoped activity, and current-price preflight before execution."
   },
   {
     phase: "08",

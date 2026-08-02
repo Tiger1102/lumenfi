@@ -20,12 +20,14 @@ The agent cannot access private keys, approve tokens, or execute in the backgrou
 The Agent workspace now lets a connected wallet sign an EIP-712 policy for LumenFi-prepared drafts.
 
 - Action allowlists for supply, repay, swap, and bridge.
-- Per-action and rolling 24-hour USDC-equivalent limits using the draft's observed asset price.
+- Per-action and rolling 24-hour USDC-equivalent limits, with the asset repriced from the contract during final preflight.
+- Wallet-scoped activity accounting so one address never consumes another address's rolling limit.
 - Expiry from one hour to seven days.
 - Immediate local revocation and signed-policy replacement.
 - Maximum Arc block age for recommendation evidence.
 - Signature and policy-hash verification when the policy loads.
-- A second policy check immediately before approval or execution.
+- A second policy check immediately before approval or execution, with signature verification, the latest Arc block, and the current contract price read in parallel before applying USDC-equivalent limits.
+- Fail-safe handling for incomplete lending, price, or pool evidence: explain the missing source and do not prepare a position-changing draft from fallback values.
 - Existing gas estimation and contract-call simulation before the wallet request.
 
 The signed policy is an application-level guard. It does not create a smart account, grant a session key, or protect calls made outside LumenFi. Every transaction still requires the connected wallet.

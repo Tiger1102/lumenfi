@@ -129,7 +129,7 @@ export function LendingPanel({ address, walletClient, balances = {}, agentDraft,
     }
 
     try {
-      await assertAgentDraftPolicy(address, agentDraft, { action: action === "deposit" ? "deposit" : action === "repay" ? "repay" : "deposit", asset: token, amount });
+      await assertAgentDraftPolicy(address, agentDraft, { action, asset: token, amount });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Signed policy validation failed.";
       setNotice({ status: "error", message });
@@ -342,7 +342,7 @@ export function LendingPanel({ address, walletClient, balances = {}, agentDraft,
               <span>ASSET</span>
               <div className="lendingCleanTokenTabs" aria-label="Lending asset">
                 {(["USDC", "EURC"] as const).map((symbol) => (
-                  <button className={token === symbol ? "active" : ""} type="button" key={symbol} onClick={() => { setToken(symbol); onDismissAgentDraft?.(); }}>
+                  <button className={token === symbol ? "active" : ""} type="button" aria-pressed={token === symbol} key={symbol} onClick={() => { setToken(symbol); onDismissAgentDraft?.(); }}>
                     <i className="tokenIcon" style={{ background: ARC_TOKENS[symbol].accent }}>
                       {symbol.slice(0, 1)}
                     </i>
@@ -369,7 +369,7 @@ export function LendingPanel({ address, walletClient, balances = {}, agentDraft,
 
           <div className="lendingCleanActions" aria-label="Lending action">
             {(["deposit", "withdraw", "borrow", "repay"] as const).map((action) => (
-              <button className={actionMode === action ? "active" : ""} type="button" key={action} onClick={() => { setActionMode(action); onDismissAgentDraft?.(); }}>
+              <button className={actionMode === action ? "active" : ""} type="button" aria-pressed={actionMode === action} key={action} onClick={() => { setActionMode(action); onDismissAgentDraft?.(); }}>
                 {actionLabel(action)}
               </button>
             ))}

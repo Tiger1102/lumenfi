@@ -52,7 +52,7 @@ export function DocsPage() {
           <div className="docsSwitch" aria-label="LumenFi documents">
             <p>Documents</p>
             {(Object.keys(documents) as DocKey[]).map((key) => (
-              <button className={activeDoc === key ? "active" : ""} type="button" onClick={() => setActiveDoc(key)} key={key}>
+              <button className={activeDoc === key ? "active" : ""} type="button" aria-pressed={activeDoc === key} onClick={() => setActiveDoc(key)} key={key}>
                 <FileText size={16} />
                 <span>{documents[key].label}</span>
               </button>
@@ -67,7 +67,7 @@ export function DocsPage() {
 
         <article className="docsArticle">
           <div className="docsMeta">
-            <span>Version 0.4</span>
+            <span>Version 0.5</span>
             <span>Updated August 2026</span>
             <span>Arc Testnet</span>
           </div>

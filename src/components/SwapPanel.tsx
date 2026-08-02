@@ -61,6 +61,8 @@ export function SwapPanel({
   const [allowanceLoading, setAllowanceLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
+  const [priceImpactBps, setPriceImpactBps] = useState<number>();
+  const [quoteRetry, setQuoteRetry] = useState(0);
   const [slippage, setSlippage] = useState("0.5");
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
 
@@ -76,6 +78,7 @@ export function SwapPanel({
     let cancelled = false;
     let timer: number | undefined;
     setPreviewError("");
+    setPriceImpactBps(undefined);
 
     if (!supportsPoolSwap(from, to) || !swapPoolAddress) {
       setPreview("");
@@ -85,12 +88,25 @@ export function SwapPanel({
       };
     }
 
+    try {
+      if (parseTokenAmount(amount, ARC_TOKENS[from]) === 0n) {
+        setPreview("");
+        setPreviewLoading(false);
+        return () => { cancelled = true; };
+      }
+    } catch {
+      setPreview("");
+      setPreviewLoading(false);
+      return () => { cancelled = true; };
+    }
+
     setPreviewLoading(true);
     timer = window.setTimeout(() => {
       getPoolSwapPreview(undefined, from, to, amount)
         .then((nextPreview) => {
           if (!cancelled) {
             setPreview(nextPreview ? nextPreview.outputText : "");
+            setPriceImpactBps(nextPreview ? Number(nextPreview.priceImpactBps) : undefined);
           }
         })
         .catch((error) => {
@@ -110,7 +126,7 @@ export function SwapPanel({
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [from, to, amount]);
+  }, [from, to, amount, quoteRetry]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,15 +156,18 @@ export function SwapPanel({
   const conflictsWithGasReserve = Boolean(address && from === "USDC" && parsedAmount <= usdcBalance && parsedAmount > spendableFromBalance);
   const needsApproval = Boolean(address && supportsPoolSwap(from, to) && parsedAmount > allowance);
   const isLoadingNetworkData = balancesLoading || previewLoading || allowanceLoading;
-  const isValidSwap = Boolean(address && walletClient && provider && from !== to && parsedAmount > 0n && !hasInsufficientBalance && !hasInsufficientGasReserve && !isLoadingNetworkData);
+  const hasRequiredQuote = !supportsPoolSwap(from, to) || Boolean(preview);
+  const isValidSwap = Boolean(address && walletClient && provider && from !== to && parsedAmount > 0n && !hasInsufficientBalance && !hasInsufficientGasReserve && !isLoadingNetworkData && hasRequiredQuote);
   const ctaLabel = !address
     ? "Connect Wallet"
     : isLoadingNetworkData
       ? "Loading Network Data..."
       : from === to
         ? "Select Different Tokens"
-        : parsedAmount === 0n
-          ? "Enter Amount"
+          : parsedAmount === 0n
+            ? "Enter Amount"
+          : previewError
+            ? "Quote Unavailable"
           : hasInsufficientGasReserve
             ? "Keep 0.02 USDC For Gas"
           : conflictsWithGasReserve
@@ -256,6 +275,7 @@ export function SwapPanel({
       </div>
       <AgentDraftNotice draft={agentDraft?.destination === "swap" ? agentDraft : undefined} onDismiss={onDismissAgentDraft} />
       <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
+      <PanelNotice status={previewError ? "error" : undefined} message={previewError ? "Pool quote is temporarily unavailable." : undefined} actionLabel="Retry quote" onAction={() => setQuoteRetry((value) => value + 1)} />
 
       {needsApproval && (
         <aside className="approvalGuidance">
@@ -296,8 +316,6 @@ export function SwapPanel({
             <button type="button" disabled>OUT</button>
           </div>
         </div>
-        {previewError && <div className="notice" role="alert">Pool quote is temporarily unavailable. Try again in a moment.</div>}
-
         <div className="slippagePanel" aria-label="Swap quote controls">
           <div className="slippageHeader">
             <span>SLIPPAGE</span>
@@ -305,7 +323,7 @@ export function SwapPanel({
           </div>
           <div className="slippageOptions">
             {["0.5", "1"].map((value) => (
-              <button className={slippage === value ? "active" : ""} type="button" key={value} onClick={() => setSlippage(value)}>
+              <button className={slippage === value ? "active" : ""} type="button" aria-pressed={slippage === value} key={value} onClick={() => setSlippage(value)}>
                 {value}%
               </button>
             ))}
@@ -329,6 +347,10 @@ export function SwapPanel({
           <div>
             <span>SETTLEMENT</span>
             <strong>On-chain</strong>
+          </div>
+          <div>
+            <span>PRICE IMPACT</span>
+            <strong>{priceImpactBps === undefined ? "--" : `${(priceImpactBps / 100).toFixed(2)}%`}</strong>
           </div>
         </div>
       </div>

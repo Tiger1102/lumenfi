@@ -45,7 +45,7 @@ export function Balances({ address, balances, setBalances, setStatus }: Balances
           <p className="eyebrow">Arc Testnet</p>
           <h2>Wallet balances</h2>
         </div>
-        <button className="iconButton" type="button" onClick={refresh} disabled={!address} title="Refresh balances">
+        <button className="iconButton" type="button" onClick={refresh} disabled={!address} title="Refresh balances" aria-label="Refresh wallet balances">
           <RefreshCcw size={18} />
         </button>
       </div>

@@ -6,7 +6,7 @@ import { roadmapItems } from "./content/roadmap";
 import type { AgentActionDraft, AgentActivity, AgentDestination } from "./lib/agent";
 import { readAgentActivity, saveAgentActivity } from "./lib/agentPolicy";
 import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
-import { lendingPoolAddress } from "./lib/lending";
+import { getLendingAssetPrice, lendingPoolAddress } from "./lib/lending";
 import { swapPoolAddress } from "./lib/swapPool";
 import { connectInjectedWallet, type ConnectedWallet } from "./lib/wallet";
 
@@ -45,7 +45,7 @@ const featureCards = [
 const marketRows = [
   { symbol: "USDC" as TokenSymbol, name: "USD Coin", ltv: "70%", decimals: "6", state: "Live" },
   { symbol: "EURC" as TokenSymbol, name: "Euro Coin", ltv: "70%", decimals: "6", state: "Live" },
-  { symbol: "cirBTC" as TokenSymbol, name: "Circle Bitcoin", ltv: "Planned", decimals: "8", state: "App Kit" }
+  { symbol: "cirBTC" as TokenSymbol, name: "Circle Bitcoin", ltv: "Planned", decimals: "8", state: "Planned" }
 ];
 
 const protocolLinks = [
@@ -85,14 +85,15 @@ export default function App() {
   const [balancesLoading, setBalancesLoading] = useState(false);
   const [activeMarketTab, setActiveMarketTab] = useState<MarketTab>("swap");
   const [agentDraft, setAgentDraft] = useState<AgentActionDraft>();
-  const [agentActivity, setAgentActivity] = useState<AgentActivity[]>(readAgentActivity);
+  const [agentActivity, setAgentActivity] = useState<AgentActivity[]>([]);
+  const [stablecoinPrices, setStablecoinPrices] = useState({ USDC: 1, EURC: 1, live: false });
   const balancePopoverRef = useRef<HTMLDivElement>(null);
 
   const totalBalance = useMemo(() => {
     const usdc = Number(formatTokenAmount(balances.USDC ?? 0n, ARC_TOKENS.USDC));
     const eurc = Number(formatTokenAmount(balances.EURC ?? 0n, ARC_TOKENS.EURC));
-    return usdc + eurc;
-  }, [balances]);
+    return usdc * stablecoinPrices.USDC + eurc * stablecoinPrices.EURC;
+  }, [balances, stablecoinPrices]);
 
   const balanceBreakdown = useMemo(
     () =>
@@ -113,7 +114,7 @@ export default function App() {
     setStatusState({ message, state, txHash });
 
     if (txHash && state === "success" && wallet?.address) {
-      refreshBalances(wallet.address).catch(() => undefined);
+      refreshBalances(wallet.address, { silent: true }).catch(() => undefined);
 
       const draftMatchesCurrentModule = agentDraft && (
         (agentDraft.destination === "bridge" && page === "bridge") ||
@@ -135,7 +136,7 @@ export default function App() {
         setAgentActivity((current) => {
           const next = [completed, ...current.filter((item) => item.txHash !== txHash)].slice(0, 12);
           try {
-            saveAgentActivity(next);
+            saveAgentActivity(wallet.address, next);
           } catch {
             // The in-memory receipt still remains available when storage is blocked.
           }
@@ -150,10 +151,11 @@ export default function App() {
     try {
       setStatus("Connecting wallet and switching to Arc...", "loading");
       const connected = await connectInjectedWallet();
-      setWallet(connected);
       await updateNetworkState(connected.provider);
+      setBalancesLoading(true);
+      setWallet(connected);
       setStatus("Wallet connected on Arc Testnet.", "success");
-      await refreshBalances(connected.address);
+      await refreshBalances(connected.address).catch(() => undefined);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Wallet connection failed.", "error");
     }
@@ -162,6 +164,7 @@ export default function App() {
   function disconnect() {
     setWallet(undefined);
     setBalances({});
+    setAgentActivity([]);
     setAgentDraft(undefined);
     setStatus("Wallet disconnected.", "idle");
   }
@@ -218,7 +221,7 @@ export default function App() {
     }
   }
 
-  async function refreshBalances(address: Address) {
+  async function refreshBalances(address: Address, options: { silent?: boolean } = {}) {
     setBalancesLoading(true);
 
     try {
@@ -236,12 +239,39 @@ export default function App() {
       }));
       setBalances(Object.fromEntries(entries) as Partial<Record<TokenSymbol, bigint>>);
     } catch (error) {
-      setStatus(error instanceof Error ? `Balance read failed: ${error.message}` : "Balance read failed.", "error");
+      if (!options.silent) {
+        setStatus(error instanceof Error ? `Balance read failed: ${error.message}` : "Balance read failed.", "error");
+      }
       throw error;
     } finally {
       setBalancesLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!wallet?.address) {
+      setAgentActivity([]);
+      return;
+    }
+    setAgentActivity(readAgentActivity(wallet.address));
+  }, [wallet?.address]);
+
+  useEffect(() => {
+    if (!wallet?.address) {
+      setStablecoinPrices({ USDC: 1, EURC: 1, live: false });
+      return;
+    }
+    let cancelled = false;
+    Promise.allSettled([getLendingAssetPrice("USDC"), getLendingAssetPrice("EURC")]).then(([usdc, eurc]) => {
+      if (cancelled) return;
+      setStablecoinPrices({
+        USDC: usdc.status === "fulfilled" ? Number(formatTokenAmount(usdc.value, ARC_TOKENS.USDC)) : 1,
+        EURC: eurc.status === "fulfilled" ? Number(formatTokenAmount(eurc.value, ARC_TOKENS.EURC)) : 1,
+        live: usdc.status === "fulfilled" && eurc.status === "fulfilled"
+      });
+    });
+    return () => { cancelled = true; };
+  }, [wallet?.address]);
 
   useEffect(() => {
     setPage(pageFromPath(window.location.pathname), { replace: true });
@@ -322,13 +352,13 @@ export default function App() {
           <span>LumenFi</span>
         </button>
         <nav className="navLinks" aria-label="Primary navigation">
-          <button className={page === "overview" ? "active" : ""} type="button" onClick={() => setPage("overview")}>Overview</button>
-          <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
-          <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
-          <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>Agent</button>
+          <button className={page === "overview" ? "active" : ""} type="button" aria-current={page === "overview" ? "page" : undefined} onClick={() => setPage("overview")}>Overview</button>
+          <button className={page === "app" ? "active" : ""} type="button" aria-current={page === "app" ? "page" : undefined} onClick={() => setPage("app")}>Markets</button>
+          <button className={page === "bridge" ? "active" : ""} type="button" aria-current={page === "bridge" ? "page" : undefined} onClick={() => setPage("bridge")}>Bridge</button>
+          <button className={page === "agent" ? "active" : ""} type="button" aria-current={page === "agent" ? "page" : undefined} onClick={() => setPage("agent")}>Agent</button>
           <button type="button" onClick={openRoadmap}>Roadmap</button>
           <a href="https://faucet.circle.com" target="_blank" rel="noreferrer">Faucet</a>
-          <button className={page === "docs" ? "active" : ""} type="button" onClick={() => setPage("docs")}>Docs</button>
+          <button className={page === "docs" ? "active" : ""} type="button" aria-current={page === "docs" ? "page" : undefined} onClick={() => setPage("docs")}>Docs</button>
         </nav>
         <div className="headerRight">
           {wallet && (
@@ -353,15 +383,15 @@ export default function App() {
                 className="balanceTrigger"
                 type="button"
                 aria-expanded={balancePopoverOpen}
-                aria-label={`Wallet ${formatAddress(wallet.address)}, total balance $${totalBalance.toFixed(2)}`}
+                aria-label={`Wallet ${formatAddress(wallet.address)}, estimated stablecoin value $${totalBalance.toFixed(2)}`}
                 onClick={() => setBalancePopoverOpen((value) => !value)}
               >
                 <span>{formatAddress(wallet.address)}</span>
-                <strong>${totalBalance.toFixed(2)}</strong>
+                <strong title={stablecoinPrices.live ? "Estimated with live lending-contract prices" : "Stablecoin parity estimate"}>≈${totalBalance.toFixed(2)}</strong>
                 <ChevronDown size={14} />
               </button>
               {balancePopoverOpen && (
-                <div className="balanceDropdown" role="menu" aria-label="Token balances">
+                <div className="balanceDropdown" aria-label="Token balances">
                   {balanceBreakdown.map(({ symbol, token, formatted }) => (
                     <div className="balanceDropdownRow" key={symbol}>
                       <span className="tokenIcon" style={{ background: token.accent }}>{symbol === "cirBTC" ? "B" : symbol.slice(0, 1)}</span>
@@ -380,8 +410,8 @@ export default function App() {
             {wallet ? (
               <>
                 <div className="walletTools" aria-label="Wallet tools">
-                  <button type="button" onClick={copyAddress} title="Copy address"><Copy size={14} /></button>
-                  <a href={`https://testnet.arcscan.app/address/${wallet.address}`} target="_blank" rel="noreferrer" title="View wallet on Arc Explorer"><ExternalLink size={14} /></a>
+                  <button type="button" onClick={copyAddress} title="Copy address" aria-label="Copy wallet address"><Copy size={14} /></button>
+                  <a href={`https://testnet.arcscan.app/address/${wallet.address}`} target="_blank" rel="noreferrer" title="View wallet on Arc Explorer" aria-label="View wallet on Arc Explorer"><ExternalLink size={14} /></a>
                 </div>
                 <button className="disconnectButton" type="button" onClick={disconnect} aria-label="Disconnect wallet">Disconnect</button>
               </>
@@ -396,11 +426,11 @@ export default function App() {
       </header>
 
       <nav className="mobileNav" aria-label="Mobile navigation">
-        <button className={page === "overview" ? "active" : ""} type="button" onClick={() => setPage("overview")}>Overview</button>
-        <button className={page === "app" ? "active" : ""} type="button" onClick={() => setPage("app")}>Markets</button>
-        <button className={page === "bridge" ? "active" : ""} type="button" onClick={() => setPage("bridge")}>Bridge</button>
-        <button className={page === "agent" ? "active" : ""} type="button" onClick={() => setPage("agent")}>Agent</button>
-        <button className={page === "docs" ? "active" : ""} type="button" onClick={() => setPage("docs")}>Docs</button>
+        <button className={page === "overview" ? "active" : ""} type="button" aria-current={page === "overview" ? "page" : undefined} onClick={() => setPage("overview")}>Overview</button>
+        <button className={page === "app" ? "active" : ""} type="button" aria-current={page === "app" ? "page" : undefined} onClick={() => setPage("app")}>Markets</button>
+        <button className={page === "bridge" ? "active" : ""} type="button" aria-current={page === "bridge" ? "page" : undefined} onClick={() => setPage("bridge")}>Bridge</button>
+        <button className={page === "agent" ? "active" : ""} type="button" aria-current={page === "agent" ? "page" : undefined} onClick={() => setPage("agent")}>Agent</button>
+        <button className={page === "docs" ? "active" : ""} type="button" aria-current={page === "docs" ? "page" : undefined} onClick={() => setPage("docs")}>Docs</button>
       </nav>
 
       <div id="page-content" tabIndex={-1}>
@@ -478,7 +508,7 @@ export default function App() {
           </section>
 
           <section id="roadmap" className="sectionBlock roadmapPage" aria-label="LumenFi roadmap">
-            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to controlled automation.</h2><p>The action agent is live with wallet-controlled execution. Stronger evidence, simulation, and permission policies remain separate milestones.</p></div>
+            <div className="sectionHeader"><p className="eyebrow">Roadmap</p><h2>From live markets to controlled automation.</h2><p>The action agent and signed permission guard are live. Model-assisted reasoning, smart-account relays, and production risk infrastructure remain separate milestones.</p></div>
             <div className="roadmapGrid">
               {roadmapItems.map((item) => (
                 <article className="roadmapCard" key={item.phase}>
@@ -503,11 +533,13 @@ export default function App() {
             {marketMetrics.map(([label, value, note]) => <div key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p></div>)}
           </div>
           <div className="proSections">
-            <div className="moduleTabs" aria-label="Market modules">
+            <div className="moduleTabs" role="tablist" aria-label="Market modules">
               {marketTabs.map((tab) => (
                 <button
                   className={activeMarketTab === tab.id ? "active" : ""}
                   type="button"
+                  role="tab"
+                  aria-selected={activeMarketTab === tab.id}
                   key={tab.id}
                   onClick={() => {
                     setActiveMarketTab(tab.id);
@@ -518,7 +550,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="marketModule" aria-label="Selected market action">
+            <div className="marketModule" role="tabpanel" aria-label="Selected market action">
               <Suspense fallback={<ModuleFallback label="Loading market module..." />}>
                 {activeMarketTab === "swap" ? (
                   <SwapPanel
@@ -596,7 +628,7 @@ export default function App() {
       )}
       </div>
 
-      {status.message && <div className={`systemToast ${status.state}`} role="status"><span>{status.message}</span>{status.txHash && <a href={`https://testnet.arcscan.app/tx/${status.txHash}`} target="_blank" rel="noreferrer">View transaction</a>}<button type="button" onClick={() => setStatusState({ state: "idle", message: "" })}>Close</button></div>}
+      {status.message && <div className={`systemToast ${status.state}`} role={status.state === "error" ? "alert" : "status"}><span>{status.message}</span>{status.txHash && <a href={`https://testnet.arcscan.app/tx/${status.txHash}`} target="_blank" rel="noreferrer">View transaction</a>}<button type="button" onClick={() => setStatusState({ state: "idle", message: "" })}>Close</button></div>}
 
       <footer className="siteFooter">
         <div className="footerTop">

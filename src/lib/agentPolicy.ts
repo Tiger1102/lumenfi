@@ -1,8 +1,9 @@
-import { hashTypedData, parseUnits, type Address, type Hex, type WalletClient } from "viem";
+import { formatUnits, hashTypedData, parseUnits, type Address, type Hex, type WalletClient } from "viem";
 import type { AgentActionDraft, AgentActionKind, AgentActivity } from "./agent";
-import { arcPublicClient, ARC_TESTNET_CHAIN_ID } from "./arc";
+import { arcPublicClient, ARC_TESTNET_CHAIN_ID, readWithRetry } from "./arc";
+import { getLendingAssetPrice } from "./lending";
 
-export const AGENT_ACTIVITY_STORAGE_KEY = "lumenfi:agent-activity:v1";
+export const AGENT_ACTIVITY_STORAGE_KEY = "lumenfi:agent-activity:v2";
 const POLICY_STORAGE_PREFIX = "lumenfi:agent-policy:v1";
 const POLICY_DECIMALS = 6;
 const ROLLING_DAY_MS = 24 * 60 * 60 * 1_000;
@@ -61,6 +62,10 @@ const policyTypes = {
 
 function policyStorageKey(owner: Address) {
   return `${POLICY_STORAGE_PREFIX}:${owner.toLowerCase()}`;
+}
+
+export function agentActivityStorageKey(owner: Address) {
+  return `${AGENT_ACTIVITY_STORAGE_KEY}:${owner.toLowerCase()}`;
 }
 
 function actionMask(actions: Record<AgentActionKind, boolean>) {
@@ -195,17 +200,19 @@ export function revokeAgentPolicy(record: SignedAgentPolicy) {
   return revoked;
 }
 
-export function readAgentActivity(): AgentActivity[] {
+export function readAgentActivity(owner: Address): AgentActivity[] {
   try {
-    const stored = window.localStorage.getItem(AGENT_ACTIVITY_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as AgentActivity[]).slice(0, 12) : [];
+    const stored = window.localStorage.getItem(agentActivityStorageKey(owner));
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed) ? (parsed as AgentActivity[]).slice(0, 12) : [];
   } catch {
     return [];
   }
 }
 
-export function saveAgentActivity(activity: AgentActivity[]) {
-  window.localStorage.setItem(AGENT_ACTIVITY_STORAGE_KEY, JSON.stringify(activity.slice(0, 12)));
+export function saveAgentActivity(owner: Address, activity: AgentActivity[]) {
+  window.localStorage.setItem(agentActivityStorageKey(owner), JSON.stringify(activity.slice(0, 12)));
 }
 
 function rollingDailyUsage(activity: AgentActivity[], nowMs: number) {
@@ -281,7 +288,7 @@ export function attachPolicyAuthorization(draft: AgentActionDraft, record: Signe
 export async function assertAgentDraftPolicy(
   owner: Address,
   draft: AgentActionDraft | undefined,
-  expected: { action: AgentActionKind; asset: string; amount: string; secondaryAsset?: string }
+  expected: { action: AgentActionKind | "withdraw" | "borrow"; asset: string; amount: string; secondaryAsset?: string }
 ) {
   if (!draft) return;
   const sameAmount = amountUnits(draft.amount) === amountUnits(expected.amount);
@@ -290,19 +297,28 @@ export async function assertAgentDraftPolicy(
   if (!sameAmount || !sameAction || !sameSecondaryAsset) {
     throw new Error("Agent draft changed after review. Return to Agent and prepare a new action.");
   }
+  if (expected.asset !== "USDC" && expected.asset !== "EURC") {
+    throw new Error("Agent policy pricing is only available for USDC and EURC actions.");
+  }
 
   const stored = readAgentPolicyRecord(owner);
   if (!stored) {
     if (draft.policyAuthorization) throw new Error("The signed policy for this draft is no longer available.");
     return;
   }
-  if (!(await verifyAgentPolicyRecord(stored, owner))) {
+  const [verified, currentBlock, currentAssetPrice] = await Promise.all([
+    verifyAgentPolicyRecord(stored, owner),
+    readWithRetry(() => arcPublicClient.getBlockNumber(), "Agent policy block"),
+    getLendingAssetPrice(expected.asset)
+  ]);
+  if (!verified) {
     throw new Error("Stored policy signature is invalid. Revoke it and sign a new policy.");
   }
   if (draft.policyAuthorization?.policyId && draft.policyAuthorization.policyId !== stored.policyId) {
     throw new Error("The active policy changed after this draft was prepared. Return to Agent and review it again.");
   }
-  const currentBlock = (await arcPublicClient.getBlockNumber()).toString();
-  const decision = evaluateAgentPolicy(stored, draft, readAgentActivity(), currentBlock);
+  const currentBudgetUnits = (amountUnits(expected.amount) * currentAssetPrice) / 1_000_000n;
+  const repricedDraft = { ...draft, budgetAmountUsd: formatUnits(currentBudgetUnits, POLICY_DECIMALS) };
+  const decision = evaluateAgentPolicy(stored, repricedDraft, readAgentActivity(owner), currentBlock.toString());
   if (!decision.allowed) throw new Error(`Policy blocked this action: ${decision.reason}.`);
 }
