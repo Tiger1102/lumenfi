@@ -1,5 +1,6 @@
 import { formatUnits, parseUnits, type Address, type WalletClient } from "viem";
-import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, readWithRetry, type TokenSymbol } from "./arc";
+import { encodeFunctionData } from "viem";
+import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, prepareArcTransaction, readWithRetry, type TokenSymbol } from "./arc";
 
 export const swapPoolAddress = (import.meta.env.VITE_SWAP_POOL_ADDRESS || "") as Address;
 
@@ -241,14 +242,16 @@ export async function removePoolLiquidity(walletClient: WalletClient, account: A
     throw new Error("Remove amount exceeds your LP balance.");
   }
 
-  const removeHash = await walletClient.writeContract({
+  const request = {
     address: swapPoolAddress,
     abi: swapPoolAbi,
     functionName: "removeLiquidity",
     args: [shares, 0n, 0n, account],
     account,
     chain: arcTestnet
-  });
+  } as const;
+  const gas = await prepareArcTransaction({ account, to: request.address, data: encodeFunctionData(request) });
+  const removeHash = await walletClient.writeContract({ ...request, ...gas });
   return arcPublicClient.waitForTransactionReceipt({ hash: removeHash });
 }
 
@@ -291,26 +294,30 @@ export async function managePoolLiquidity(
       );
 
       if (allowance < item.amount) {
-        const approveHash = await walletClient.writeContract({
+        const request = {
           address: tokenAddress,
           abi: erc20Abi,
           functionName: "approve",
           args: [swapPoolAddress, item.amount],
           account,
           chain: arcTestnet
-        });
+        } as const;
+        const gas = await prepareArcTransaction({ account, to: request.address, data: encodeFunctionData(request) });
+        const approveHash = await walletClient.writeContract({ ...request, ...gas });
         await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
       }
     }
 
-    const addHash = await walletClient.writeContract({
+    const request = {
       address: swapPoolAddress,
       abi: swapPoolAbi,
       functionName: "addLiquidity",
       args: [usdcAmount, eurcAmount, 0n],
       account,
       chain: arcTestnet
-    });
+    } as const;
+    const gas = await prepareArcTransaction({ account, to: request.address, data: encodeFunctionData(request) });
+    const addHash = await walletClient.writeContract({ ...request, ...gas });
     return arcPublicClient.waitForTransactionReceipt({ hash: addHash });
   }
 
@@ -351,26 +358,29 @@ export async function poolSwap(walletClient: WalletClient, owner: Address, from:
   );
 
   if (allowance < amountIn) {
-    const approveHash = await walletClient.writeContract({
+    const request = {
       address: tokenAddress,
       abi: erc20Abi,
       functionName: "approve",
       args: [swapPoolAddress, amountIn],
       account: owner,
       chain: arcTestnet
-    });
+    } as const;
+    const gas = await prepareArcTransaction({ account: owner, to: request.address, data: encodeFunctionData(request) });
+    const approveHash = await walletClient.writeContract({ ...request, ...gas });
     await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
   }
 
-  const { request } = await arcPublicClient.simulateContract({
+  const request = {
     address: swapPoolAddress,
     abi: swapPoolAbi,
     functionName: "swap",
     args: [tokenAddress, amountIn],
     account: owner,
     chain: arcTestnet
-  });
-  const swapHash = await walletClient.writeContract(request);
+  } as const;
+  const gas = await prepareArcTransaction({ account: owner, to: request.address, data: encodeFunctionData(request) });
+  const swapHash = await walletClient.writeContract({ ...request, ...gas });
 
   return arcPublicClient.waitForTransactionReceipt({ hash: swapHash });
 }
@@ -383,6 +393,8 @@ export async function getSwapAllowance(owner: Address, token: TokenSymbol) {
 export async function approveSwap(walletClient: WalletClient, owner: Address, token: TokenSymbol, amountText: string) {
   const amount = parseTokenAmount(amountText, ARC_TOKENS[token]);
   if (!swapPoolAddress || amount === 0n) throw new Error("Enter an amount before approving.");
-  const hash = await walletClient.writeContract({ address: getTokenAddress(token), abi: erc20Abi, functionName: "approve", args: [swapPoolAddress, amount], account: owner, chain: arcTestnet });
+  const request = { address: getTokenAddress(token), abi: erc20Abi, functionName: "approve", args: [swapPoolAddress, amount], account: owner, chain: arcTestnet } as const;
+  const gas = await prepareArcTransaction({ account: owner, to: request.address, data: encodeFunctionData(request) });
+  const hash = await walletClient.writeContract({ ...request, ...gas });
   return arcPublicClient.waitForTransactionReceipt({ hash });
 }
