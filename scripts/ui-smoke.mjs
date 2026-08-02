@@ -182,9 +182,10 @@ try {
   });
   session.on("Log.entryAdded", ({ entry }) => {
     if (entry?.level !== "error") return;
+    const referencedUrls = (entry.text || "").match(/https:\/\/[^'"\s]+/g) || [];
     const externalNetworkFailure = (
       entry.source === "network" && entry.url && !entry.url.startsWith(appOrigin)
-    ) || /https:\/\/rpc(?:\.[\w-]+)?\.testnet\.arc\.network/i.test(entry.text || "");
+    ) || referencedUrls.some((url) => !url.startsWith(appOrigin));
     if (!externalNetworkFailure) runtimeErrors.push(entry.text || "Browser log error");
   });
 
