@@ -2,12 +2,23 @@ import { formatUnits, parseUnits, type Address, type WalletClient } from "viem";
 import { encodeFunctionData } from "viem";
 import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, prepareArcTransaction, readWithRetry, type TokenSymbol } from "./arc";
 
-export const swapPoolAddress = (import.meta.env.VITE_SWAP_POOL_ADDRESS || "") as Address;
+export const swapPoolAddress = (import.meta.env?.VITE_SWAP_POOL_ADDRESS || "") as Address;
 const LP_DECIMALS = 6;
 const LIQUIDITY_SLIPPAGE_BPS = 50n;
 const BPS = 10_000n;
+const SWAP_FEE_BPS = 30n;
 
 export const swapPoolAbi = [
+  {
+    type: "function",
+    name: "reserves",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "usdcReserve", type: "uint256" },
+      { name: "eurcReserve", type: "uint256" }
+    ]
+  },
   {
     type: "function",
     name: "addLiquidity",
@@ -82,6 +93,15 @@ export function supportsPoolSwap(from: TokenSymbol, to: TokenSymbol) {
   return (from === "USDC" && to === "EURC") || (from === "EURC" && to === "USDC");
 }
 
+export function calculatePriceImpactBps(amountIn: bigint, reserveIn: bigint, reserveOut: bigint, amountOut: bigint) {
+  if (amountIn === 0n || reserveIn === 0n || reserveOut === 0n) return 0n;
+  const feeAdjustedAmountIn = (amountIn * (BPS - SWAP_FEE_BPS)) / BPS;
+  const spotAmountOut = (feeAdjustedAmountIn * reserveOut) / reserveIn;
+  return spotAmountOut > amountOut && spotAmountOut > 0n
+    ? ((spotAmountOut - amountOut) * BPS) / spotAmountOut
+    : 0n;
+}
+
 export async function poolQuote(from: TokenSymbol, to: TokenSymbol, amountText: string) {
   if (!swapPoolAddress || !supportsPoolSwap(from, to)) {
     return null;
@@ -111,24 +131,32 @@ export async function getPoolSwapPreview(owner: Address | undefined, from: Token
     return null;
   }
 
-  const quote = await poolQuote(from, to, amountText);
-  const balance = owner
-    ? await readWithRetry(
-        () =>
-          arcPublicClient.readContract({
-            address: getTokenAddress(from),
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [owner]
-          }),
-        `${from} balance`
-      )
-    : 0n;
+  const [quote, balance, reserves] = await Promise.all([
+    poolQuote(from, to, amountText),
+    owner
+      ? readWithRetry(
+          () =>
+            arcPublicClient.readContract({
+              address: getTokenAddress(from),
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [owner]
+            }),
+          `${from} balance`
+        )
+      : Promise.resolve(0n),
+    poolReserves()
+  ]);
+  const reserveIn = from === "USDC" ? reserves?.usdcReserve ?? 0n : reserves?.eurcReserve ?? 0n;
+  const reserveOut = from === "USDC" ? reserves?.eurcReserve ?? 0n : reserves?.usdcReserve ?? 0n;
+  const quotedAmountOut = quote?.[1] ?? 0n;
+  const priceImpactBps = calculatePriceImpactBps(amountIn, reserveIn, reserveOut, quotedAmountOut);
 
   return {
     amountIn,
-    amountOut: quote?.[1] ?? 0n,
+    amountOut: quotedAmountOut,
     balance,
+    priceImpactBps,
     outputText: quote ? formatTokenAmount(quote[1], ARC_TOKENS[to]) : "--"
   };
 }
@@ -138,28 +166,15 @@ export async function poolReserves() {
     return null;
   }
 
-  const [usdcReserve, eurcReserve] = await Promise.all([
-    readWithRetry(
-      () =>
-        arcPublicClient.readContract({
-          address: getTokenAddress("USDC"),
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [swapPoolAddress]
-        }),
-      "USDC reserve"
-    ),
-    readWithRetry(
-      () =>
-        arcPublicClient.readContract({
-          address: getTokenAddress("EURC"),
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [swapPoolAddress]
-        }),
-      "EURC reserve"
-    )
-  ]);
+  const [usdcReserve, eurcReserve] = await readWithRetry(
+    () =>
+      arcPublicClient.readContract({
+        address: swapPoolAddress,
+        abi: swapPoolAbi,
+        functionName: "reserves"
+      }),
+    "Pool reserves"
+  );
 
   return { usdcReserve, eurcReserve };
 }

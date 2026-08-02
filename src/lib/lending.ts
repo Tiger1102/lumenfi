@@ -2,7 +2,7 @@ import type { Address, WalletClient } from "viem";
 import { encodeFunctionData } from "viem";
 import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, getTokenAddress, parseTokenAmount, prepareArcTransaction, readWithRetry, type TokenSymbol } from "./arc";
 
-export const lendingPoolAddress = (import.meta.env.VITE_LENDING_POOL_ADDRESS || "") as Address;
+export const lendingPoolAddress = (import.meta.env?.VITE_LENDING_POOL_ADDRESS || "") as Address;
 
 export const lendingPoolAbi = [
   {

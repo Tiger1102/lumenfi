@@ -143,10 +143,11 @@ The lending pool is an MVP contract, not production lending infrastructure. Befo
 
 ## Test Coverage
 
-The repository includes Node test runner + Viem tests for the two core contract paths:
+The repository includes Node test runner + Viem tests for the two core contract paths and the signed Agent policy guard:
 
 - PermissionlessStablePool: add liquidity, quote, swap, and remove liquidity.
 - LendingPool: deposit, borrow, LTV enforcement, repay, and healthy withdrawal.
+- Agent policy: EIP-712 binding, wallet-scoped activity, current-price action and budget limits, expiry, revocation, block freshness, Vietnamese intent handling, and fail-safe partial-read behavior.
 
 Run:
 

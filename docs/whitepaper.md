@@ -18,7 +18,7 @@ USDC Max actions reserve 0.02 USDC for approval and execution fees. Arc RPC fee 
 
 ### Stablecoin market
 
-The deployed LumenFi pool supports USDC/EURC swaps and permissionless liquidity. The interface shows pool reserves, the current quote, price impact, minimum received, wallet balances, and LP ownership.
+The deployed LumenFi pool supports USDC/EURC swaps and permissionless liquidity. The interface shows total liquidity estimated from contract prices, token reserves, the current quote, price impact, minimum received, wallet balances, and LP ownership.
 
 Swap slippage and deadlines are enforced by the contract. Liquidity additions and removals also use minimum-output checks so the values shown before signing are not presentation-only.
 
@@ -38,7 +38,7 @@ The LumenFi Agent is a deterministic, user-controlled action planner. It reads w
 
 The current release does not send prompts to an external language model and does not hold keys. It cannot approve tokens or sign transactions. Destination modules refresh live state before execution, and the connected wallet remains the only signer.
 
-Users can sign an EIP-712 policy that constrains Agent-prepared actions by allowlist, per-action USDC-equivalent limit, rolling 24-hour limit, expiry, revocation state, and Arc block freshness. The policy hash and signature are verified when loaded and the active policy is evaluated again before swap, lending, or bridge execution. This is an application-level guard, not a session key or autonomous smart account.
+Users can sign an EIP-712 policy that constrains Agent-prepared actions by allowlist, per-action USDC-equivalent limit, rolling 24-hour limit, expiry, revocation state, and Arc block freshness. Activity is stored per wallet. The policy hash and signature are verified when loaded, then the signature, draft fields, current Arc block, current contract price, and remaining limits are checked again before swap, lending, or bridge execution. Incomplete lending, price, or pool evidence does not produce a position-changing draft. This is an application-level guard, not a session key or autonomous smart account.
 
 ## Architecture
 
@@ -91,13 +91,17 @@ A production release would require independent audits, invariant and fuzz testin
 
 ## Roadmap
 
-1. **Live core:** wallet balances, Arc fee preparation, swap, liquidity, lending, receipts, and contract references.
-2. **Bridge beta:** verified App Kit route execution, progress events, retry handling, and clearer source-chain requirements.
-3. **Signed policy guard live:** action allowlists, value limits, rolling usage, expiry, revocation, block freshness, and final preflight.
-4. **Model-assisted reasoning:** schema-bound natural-language intent with deterministic tools and complete traces.
-5. **ERC-4337 execution:** audited smart accounts, session permissions, bundler, paymaster, and onchain policy enforcement.
-6. **Risk infrastructure:** oracle design, dynamic rates, monitoring, stress tests, audits, and incident controls.
-7. **Cross-chain orchestration:** composed intents, route attestations, recovery states, and settlement tracking.
+1. **Live — Core market release:** wallet connection, Arc balances, navigation, explorer-linked receipts, public contract references, and release documentation.
+2. **Live — Permissionless LP pool:** USDC/EURC swaps, open liquidity provision, LP shares, fee accrual, minimum-output protection, reserves, and total-liquidity estimates.
+3. **Beta — Circle bridge routes:** App Kit estimates, bridge requests, Unified Balance reads, pending states, and explicit recovery messages for supported testnet paths.
+4. **Live — Lending market and risk controls:** USDC/EURC supply, withdraw, borrow, repay, liquidation logic, account health, borrowing limits, and max-withdraw guidance.
+5. **Live — Market analytics:** live quotes, pool rate, minimum received, price impact, reserve depth, wallet balances, and LP ownership.
+6. **Live — Onchain action agent:** deterministic intent classification, current Arc evidence, bounded supply, repay, swap, and bridge drafts, fail-safe handling of incomplete reads, and mandatory wallet confirmation.
+7. **Live — Signed permission controls:** EIP-712 action allowlists, current-price USDC-equivalent action and rolling limits, expiry, local revocation, block freshness, wallet-scoped activity, signature verification, and final preflight. These controls apply inside LumenFi and are not onchain session permissions.
+8. **Next — Model-assisted reasoning:** schema-bound natural-language intent, server-held model credentials, deterministic tools, prompt-injection boundaries, and complete decision traces.
+9. **Planned — ERC-4337 smart-account relay:** audited smart accounts, scoped session permissions, bundler and paymaster recovery, user-operation simulation, and onchain policy enforcement.
+10. **Planned — Independent risk engine:** resilient oracle inputs, stale-price rejection, dynamic rates, asset caps, liquidation monitoring, stress tests, audits, and incident controls.
+11. **Research — Cross-chain strategy orchestration:** composed bridge, swap, and lending intents with route attestations, cost ceilings, recovery states, chain-specific limits, and settlement tracking.
 
 ## Verification
 

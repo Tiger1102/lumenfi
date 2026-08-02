@@ -7,6 +7,7 @@ const chromePath =
   process.env.CHROME_PATH ||
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const baseUrl = process.env.UI_BASE_URL || "http://127.0.0.1:5173";
+const appOrigin = new URL(baseUrl).origin;
 const captureDir = process.env.UI_CAPTURE_DIR;
 const mockWallet = process.env.UI_MOCK_WALLET === "1";
 const profileDir = mkdtempSync(join(tmpdir(), "lumenfi-ui-smoke-"));
@@ -83,7 +84,12 @@ function createSession(webSocketUrl) {
     });
   }
 
-  return { socket, ready, send, once };
+  function on(method, listener) {
+    events.set(method, [...(events.get(method) || []), listener]);
+    return () => events.set(method, (events.get(method) || []).filter((item) => item !== listener));
+  }
+
+  return { socket, ready, send, once, on };
 }
 
 async function evaluate(session, expression) {
@@ -169,6 +175,18 @@ try {
   await session.ready;
   await session.send("Page.enable");
   await session.send("Runtime.enable");
+  await session.send("Log.enable");
+  const runtimeErrors = [];
+  session.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
+    runtimeErrors.push(exceptionDetails?.exception?.description || exceptionDetails?.text || "Uncaught runtime exception");
+  });
+  session.on("Log.entryAdded", ({ entry }) => {
+    if (entry?.level !== "error") return;
+    const externalNetworkFailure = (
+      entry.source === "network" && entry.url && !entry.url.startsWith(appOrigin)
+    ) || /https:\/\/rpc(?:\.[\w-]+)?\.testnet\.arc\.network/i.test(entry.text || "");
+    if (!externalNetworkFailure) runtimeErrors.push(entry.text || "Browser log error");
+  });
 
   if (mockWallet) {
     await session.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -204,6 +222,8 @@ try {
   await setReducedMotion(session, false);
 
   await navigate(session, "/market", { width: 1440, height: 1000, mobile: false });
+  const priceImpactVisible = await evaluate(session, `document.querySelector(".routeMeta")?.textContent?.includes("PRICE IMPACT")`);
+  if (!priceImpactVisible) throw new Error("Swap does not expose price impact beside the live route.");
   results.push(await inspect(session, "market-swap"));
   await capture(session, "market-swap");
 
@@ -243,7 +263,11 @@ try {
       const button = document.querySelector(".connectButton");
       if (button && !/disconnect/i.test(button.textContent || "")) button.click();
     })()`);
-    await delay(4_000);
+    await delay(8_000);
+    const agentAnswerVisible = await evaluate(session, `Boolean(document.querySelector(".agentAnswerHeader") && document.querySelector(".agentTrace") && document.querySelector(".agentRecommendations"))`);
+    if (!agentAnswerVisible) throw new Error("Connected Agent did not render its evidence trace and prepared plan.");
+    results.push(await inspect(session, "agent-connected-mobile"));
+    await capture(session, "agent-connected-mobile");
     const policyVisible = await evaluate(session, `Boolean(document.querySelector(".agentPolicyConsole") && document.querySelector("#agent-policy-title")?.textContent?.includes("Permission controls"))`);
     if (!policyVisible) throw new Error("Signed policy console was not rendered for the connected mock wallet.");
     await evaluate(session, `document.querySelector(".agentPolicyConsole")?.scrollIntoView({ block: "start" })`);
@@ -266,6 +290,11 @@ try {
   }
 
   await navigate(session, "/docs", { width: 1440, height: 1000, mobile: false });
+  const docsRoadmapReady = await evaluate(session, `(() => {
+    const heading = [...document.querySelectorAll(".docBody h2")].find((item) => item.textContent?.trim() === "Roadmap");
+    return heading?.nextElementSibling?.tagName === "OL" && heading.nextElementSibling.children.length === 11;
+  })()`);
+  if (!docsRoadmapReady) throw new Error("Docs roadmap is not aligned with all eleven product milestones.");
   results.push(await inspect(session, "docs-desktop"));
   await capture(session, "docs-desktop");
 
@@ -280,6 +309,10 @@ try {
   await delay(300);
   results.push(await inspect(session, "roadmap-desktop"));
   await capture(session, "roadmap-desktop");
+
+  if (runtimeErrors.length > 0) {
+    throw new Error(`Browser runtime errors detected:\n${[...new Set(runtimeErrors)].join("\n")}`);
+  }
 
   console.log(JSON.stringify(results, null, 2));
   session.socket.close();

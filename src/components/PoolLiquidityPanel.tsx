@@ -209,7 +209,7 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
           <p className="eyebrow">Permissionless liquidity</p>
           <h2>USDC / EURC pool</h2>
         </div>
-        <button className="iconButton" type="button" onClick={refresh} title="Refresh pool" disabled={loading}>
+        <button className="iconButton" type="button" onClick={refresh} title="Refresh pool" aria-label="Refresh pool data" disabled={loading}>
           <RefreshCcw size={18} />
         </button>
       </div>
@@ -218,10 +218,10 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
       {!swapPoolAddress && <div className="notice">Set VITE_SWAP_POOL_ADDRESS to enable liquidity controls.</div>}
 
       <div className="poolModeTabs" aria-label="Liquidity action">
-        <button className={mode === "add" ? "active" : ""} type="button" onClick={() => setMode("add")}>
+        <button className={mode === "add" ? "active" : ""} type="button" aria-pressed={mode === "add"} onClick={() => setMode("add")}>
           Add Liquidity
         </button>
-        <button className={mode === "remove" ? "active" : ""} type="button" onClick={() => setMode("remove")}>
+        <button className={mode === "remove" ? "active" : ""} type="button" aria-pressed={mode === "remove"} onClick={() => setMode("remove")}>
           Remove Liquidity
         </button>
       </div>
@@ -230,7 +230,7 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
         <div className="poolProCard primary">
           <span>Total pool liquidity</span>
           <strong>{loading ? <i className="skeletonText" /> : `$${totalPoolLiquidity.toLocaleString("en-US", { maximumFractionDigits: 2 })}`}</strong>
-          <em>{loading ? <i className="skeletonText tiny" /> : assetPrices.live ? "Live USD oracle value" : "Stablecoin parity estimate"}</em>
+          <em>{loading ? <i className="skeletonText tiny" /> : assetPrices.live ? "Live contract-price estimate" : "Stablecoin parity estimate"}</em>
         </div>
 
         <div className="poolProCard">

@@ -82,6 +82,12 @@ export function AgentPanel({ address, walletClient, balances, balancesLoading, a
     setSnapshot(undefined);
     setAnswer(undefined);
     setError("");
+    return () => {
+      requestRef.current += 1;
+    };
+  }, [address]);
+
+  useEffect(() => {
     if (address && !balancesLoading) refresh().catch(() => undefined);
     return () => {
       requestRef.current += 1;

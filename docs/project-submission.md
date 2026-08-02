@@ -39,7 +39,7 @@ PermissionlessStablePool: `0x212622812664e37abbb99774ee7488bc721b38b3`
 
 ## Agent boundary
 
-The current agent is an onchain action planner, not an autonomous custodian. It reads balances, lending risk, pool reserves, prices, and block evidence, then prepares a supply, repay, swap, or bridge draft. A connected wallet can sign an EIP-712 policy with action allowlists, per-action and rolling daily USDC-equivalent limits, expiry, immediate revocation, and a maximum draft age. The destination module verifies that policy again before the wallet opens.
+The current agent is an onchain action planner, not an autonomous custodian. It reads balances, lending risk, pool reserves, prices, and block evidence, then prepares a supply, repay, swap, or bridge draft. A connected wallet can sign an EIP-712 policy with action allowlists, per-action and rolling daily USDC-equivalent limits, expiry, immediate revocation, and a maximum draft age. Activity accounting is isolated per wallet, and the destination module verifies the signature, current Arc block, current contract price, draft fields, and remaining limits again before the wallet opens. Incomplete lending, price, or pool evidence does not produce a position-changing Agent draft.
 
 No external language model or session-key relay is used in this release. This keeps recommendations reproducible for judging and makes the trust boundary explicit. The policy protects Agent flows inside LumenFi; it is not represented as onchain smart-account enforcement.
 
