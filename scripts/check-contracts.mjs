@@ -1,4 +1,4 @@
-import { createPublicClient, defineChain, http, parseAbi, formatUnits } from "viem";
+import { createPublicClient, defineChain, encodeFunctionData, http, parseAbi, parseGwei, formatUnits } from "viem";
 
 const rpcUrls = [
   "https://rpc.testnet.arc.network",
@@ -29,7 +29,10 @@ async function runRpc(method, args) {
 
 const client = {
   getBytecode: (args) => runRpc("getBytecode", args),
-  readContract: (args) => runRpc("readContract", args)
+  readContract: (args) => runRpc("readContract", args),
+  estimateGas: (args) => runRpc("estimateGas", args),
+  estimateFeesPerGas: (args) => runRpc("estimateFeesPerGas", args),
+  getBalance: (args) => runRpc("getBalance", args)
 };
 const lending = "0x474552ce815a68443bdfcafd089cdb345791d204";
 const swap = "0xfd34e43021f20f585db8f078471c7107d8d1da30";
@@ -39,7 +42,8 @@ const eurc = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
 const erc20 = parseAbi([
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
-  "function balanceOf(address) view returns (uint256)"
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)"
 ]);
 const stable = parseAbi([
   "function usdc() view returns (address)",
@@ -145,6 +149,28 @@ async function main() {
     eurcBorrowed: formatUnits(eurcBorrowed, 6),
     lendingUsdcBalance: formatUnits(lendingUsdcBalance, 6),
     lendingEurcBalance: formatUnits(lendingEurcBalance, 6)
+  });
+
+  const approveData = encodeFunctionData({
+    abi: erc20,
+    functionName: "approve",
+    args: [lending, 1_000_000n]
+  });
+  const [gasEstimate, feeEstimate, nativeGasBalance] = await Promise.all([
+    client.estimateGas({ account: owner, to: usdc, data: approveData }),
+    client.estimateFeesPerGas({ type: "eip1559" }),
+    client.getBalance({ address: owner })
+  ]);
+  const bufferedGas = (gasEstimate * 125n + 99n) / 100n;
+  const maxFeePerGas = feeEstimate.maxFeePerGas > parseGwei("30") ? feeEstimate.maxFeePerGas : parseGwei("30");
+
+  console.log("transaction preflight", {
+    gasEstimate: gasEstimate.toString(),
+    bufferedGas: bufferedGas.toString(),
+    maxFeeGwei: formatUnits(maxFeePerGas, 9),
+    priorityFeeGwei: formatUnits(feeEstimate.maxPriorityFeePerGas, 9),
+    maximumFeeUsdc: formatUnits(bufferedGas * maxFeePerGas, 18),
+    nativeGasBalanceUsdc: formatUnits(nativeGasBalance, 18)
   });
 }
 

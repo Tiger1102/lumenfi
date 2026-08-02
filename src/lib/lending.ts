@@ -1,5 +1,6 @@
 import type { Address, WalletClient } from "viem";
-import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, getTokenAddress, parseTokenAmount, readWithRetry, type TokenSymbol } from "./arc";
+import { encodeFunctionData } from "viem";
+import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, getTokenAddress, parseTokenAmount, prepareArcTransaction, readWithRetry, type TokenSymbol } from "./arc";
 
 export const lendingPoolAddress = (import.meta.env.VITE_LENDING_POOL_ADDRESS || "") as Address;
 
@@ -207,7 +208,9 @@ export async function getLendingAssetPrice(tokenSymbol: TokenSymbol) {
 export async function approveLending(walletClient: WalletClient, owner: Address, tokenSymbol: TokenSymbol, amountText: string) {
   const amount = parseTokenAmount(amountText, ARC_TOKENS[tokenSymbol]);
   if (!lendingPoolAddress || amount === 0n) throw new Error("Enter an amount before approving.");
-  const hash = await walletClient.writeContract({ address: getTokenAddress(tokenSymbol), abi: erc20Abi, functionName: "approve", args: [lendingPoolAddress, amount], account: owner, chain: arcTestnet });
+  const request = { address: getTokenAddress(tokenSymbol), abi: erc20Abi, functionName: "approve", args: [lendingPoolAddress, amount], account: owner, chain: arcTestnet } as const;
+  const gas = await prepareArcTransaction({ account: owner, to: request.address, data: encodeFunctionData(request) });
+  const hash = await walletClient.writeContract({ ...request, ...gas });
   return arcPublicClient.waitForTransactionReceipt({ hash });
 }
 
@@ -234,14 +237,16 @@ export async function approveIfNeeded(walletClient: WalletClient, owner: Address
     return undefined;
   }
 
-  return walletClient.writeContract({
+  const request = {
     address: tokenAddress,
     abi: erc20Abi,
     functionName: "approve",
     args: [lendingPoolAddress, amount],
     account: owner,
     chain: arcTestnet
-  });
+  } as const;
+  const gas = await prepareArcTransaction({ account: owner, to: request.address, data: encodeFunctionData(request) });
+  return walletClient.writeContract({ ...request, ...gas });
 }
 
 export async function lendingAction(
@@ -302,15 +307,16 @@ export async function lendingAction(
     }
   }
 
-  const { request } = await arcPublicClient.simulateContract({
+  const request = {
     address: lendingPoolAddress,
     abi: lendingPoolAbi,
     functionName: action,
     args: [tokenAddress, amount],
     account: owner,
     chain: arcTestnet
-  });
-  const hash = await walletClient.writeContract(request);
+  } as const;
+  const gas = await prepareArcTransaction({ account: owner, to: request.address, data: encodeFunctionData(request) });
+  const hash = await walletClient.writeContract({ ...request, ...gas });
 
   return arcPublicClient.waitForTransactionReceipt({ hash });
 }

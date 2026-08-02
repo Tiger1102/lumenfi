@@ -1,5 +1,7 @@
 ﻿import { createPublicClient, defineChain, fallback, formatUnits, http, parseUnits, type Address } from "viem";
 
+import { parseGwei, type Hex } from "viem";
+
 export const ARC_TESTNET_CHAIN_ID = 5042002;
 export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
 const configuredFallbackRpcs = (import.meta.env.VITE_ARC_FALLBACK_RPCS || "")
@@ -7,13 +9,13 @@ const configuredFallbackRpcs = (import.meta.env.VITE_ARC_FALLBACK_RPCS || "")
   .map((url) => url.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 export const ARC_TESTNET_RPCS = [
+  ARC_TESTNET_RPC,
   ...configuredFallbackRpcs,
   "https://rpc.drpc.testnet.arc.network",
-  ARC_TESTNET_RPC,
   "https://rpc.blockdaemon.testnet.arc.network",
   "https://rpc.quicknode.testnet.arc.network",
 ].filter((url, index, urls) => urls.indexOf(url) === index);
-const ARC_BROWSER_READ_RPCS = ARC_TESTNET_RPCS.filter((url) => url !== ARC_TESTNET_RPC);
+const ARC_BROWSER_READ_RPCS = ARC_TESTNET_RPCS;
 
 export const arcTestnet = defineChain({
   id: ARC_TESTNET_CHAIN_ID,
@@ -44,6 +46,61 @@ export const arcPublicClient = createPublicClient({
     { rank: false, retryCount: 0 }
   )
 });
+
+const ARC_MIN_MAX_FEE_PER_GAS = parseGwei("30");
+const ARC_MIN_PRIORITY_FEE_PER_GAS = parseGwei("1");
+
+export type ArcTransactionGas = {
+  gas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+};
+
+function larger(value: bigint | undefined, minimum: bigint) {
+  return value !== undefined && value > minimum ? value : minimum;
+}
+
+function transactionPreparationError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/insufficient funds|insufficient.*gas/i.test(message)) {
+    return new Error("Insufficient USDC for Arc network fees. Add Arc Testnet USDC from the Circle Faucet and try again.");
+  }
+  if (/revert|execution reverted/i.test(message)) {
+    return new Error(`Contract simulation rejected this action. ${message}`);
+  }
+  return new Error(`Arc could not prepare the network fee. Retry or set the wallet RPC to ${ARC_TESTNET_RPC}.`);
+}
+
+export async function prepareArcTransaction(input: {
+  account: Address;
+  to: Address;
+  data: Hex;
+}): Promise<ArcTransactionGas> {
+  const [gasResult, feesResult, balanceResult] = await Promise.allSettled([
+    arcPublicClient.estimateGas({ account: input.account, to: input.to, data: input.data }),
+    arcPublicClient.estimateFeesPerGas({ type: "eip1559" }),
+    arcPublicClient.getBalance({ address: input.account })
+  ]);
+
+  if (gasResult.status === "rejected") {
+    throw transactionPreparationError(gasResult.reason);
+  }
+
+  const gas = (gasResult.value * 125n + 99n) / 100n;
+  const estimatedFees = feesResult.status === "fulfilled" ? feesResult.value : undefined;
+  const maxPriorityFeePerGas = larger(estimatedFees?.maxPriorityFeePerGas, ARC_MIN_PRIORITY_FEE_PER_GAS);
+  const estimatedMaxFeePerGas = larger(estimatedFees?.maxFeePerGas, ARC_MIN_MAX_FEE_PER_GAS);
+  const maxFeePerGas = estimatedMaxFeePerGas > maxPriorityFeePerGas
+    ? estimatedMaxFeePerGas
+    : maxPriorityFeePerGas + ARC_MIN_MAX_FEE_PER_GAS;
+  const maximumFee = gas * maxFeePerGas;
+
+  if (balanceResult.status === "fulfilled" && balanceResult.value < maximumFee) {
+    throw new Error("Insufficient USDC for Arc network fees. Add Arc Testnet USDC from the Circle Faucet and try again.");
+  }
+
+  return { gas, maxFeePerGas, maxPriorityFeePerGas };
+}
 
 export type TokenSymbol = "USDC" | "EURC" | "cirBTC";
 
@@ -178,9 +235,9 @@ export async function switchToArc(provider: EIP1193Provider) {
           nativeCurrency: {
             name: "USDC",
             symbol: "USDC",
-            decimals: 18
+            decimals: 6
           },
-          rpcUrls: ARC_TESTNET_RPCS,
+          rpcUrls: [ARC_TESTNET_RPC, ...ARC_TESTNET_RPCS.filter((url) => url !== ARC_TESTNET_RPC)],
           blockExplorerUrls: ["https://testnet.arcscan.app"]
         }
       ]

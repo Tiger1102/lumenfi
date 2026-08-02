@@ -135,6 +135,8 @@ npx wrangler pages deploy dist --project-name lumenfi --commit-dirty=true
 
 Arc uses USDC as native gas with 18 decimals, while ERC-20 USDC uses 6 decimals at `0x3600000000000000000000000000000000000000`. The app and lending pool use ERC-20 balances and approvals.
 
+Before opening the wallet confirmation, LumenFi estimates contract gas through Arc RPC, adds a 25% gas-limit buffer, applies an EIP-1559 max-fee floor of 30 Gwei with a 1 Gwei priority fee, and checks the wallet's native USDC gas balance. Supplying these values prevents injected wallets from remaining indefinitely on “estimating network fee.” The wallet-add flow uses Arc's primary RPC and six display decimals as recommended for wallet integrations.
+
 The lending pool is an MVP contract, not production lending infrastructure. Before mainnet use it needs audited accounting, oracle hardening, interest accrual, reserves, liquidation testing, and risk parameters per asset.
 
 ## Test Coverage
