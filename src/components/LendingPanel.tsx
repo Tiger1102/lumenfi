@@ -3,14 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { formatUnits } from "viem";
 import { approveLending, clearLendingSnapshotCache, getLendingAllowance, getLendingSnapshot, lendingAction, lendingPoolAddress, type LendingTokenPosition } from "../lib/lending";
-import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type TokenSymbol } from "../lib/arc";
+import { ARC_GAS_RESERVE_USDC, ARC_TOKENS, formatTokenAmount, parseTokenAmount, type TokenSymbol } from "../lib/arc";
 import type { AgentActionDraft } from "../lib/agent";
+import { assertAgentDraftPolicy } from "../lib/agentPolicy";
 import { AgentDraftNotice } from "./AgentDraftNotice";
 import { PanelNotice } from "./PanelNotice";
 
 type LendingPanelProps = {
   address?: Address;
   walletClient?: WalletClient;
+  balances?: Partial<Record<TokenSymbol, bigint>>;
   agentDraft?: AgentActionDraft;
   onDismissAgentDraft?: () => void;
   onConnect: () => Promise<void>;
@@ -56,7 +58,7 @@ function readableLendingError(error: unknown) {
   return message || "Lending transaction failed.";
 }
 
-export function LendingPanel({ address, walletClient, agentDraft, onDismissAgentDraft, onConnect, setStatus }: LendingPanelProps) {
+export function LendingPanel({ address, walletClient, balances = {}, agentDraft, onDismissAgentDraft, onConnect, setStatus }: LendingPanelProps) {
   const [token, setToken] = useState<TokenSymbol>("USDC");
   const [actionMode, setActionMode] = useState<LendingAction>("deposit");
   const [amount, setAmount] = useState("50");
@@ -123,6 +125,15 @@ export function LendingPanel({ address, walletClient, agentDraft, onDismissAgent
     if (!walletClient || !address) {
       setNotice({ status: "error", message: "Connect wallet before using lending." });
       setStatus("Connect wallet before using lending.", "error");
+      return;
+    }
+
+    try {
+      await assertAgentDraftPolicy(address, agentDraft, { action: action === "deposit" ? "deposit" : action === "repay" ? "repay" : "deposit", asset: token, amount });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Signed policy validation failed.";
+      setNotice({ status: "error", message });
+      setStatus(message, "error");
       return;
     }
 
@@ -231,11 +242,19 @@ export function LendingPanel({ address, walletClient, agentDraft, onDismissAgent
       return 0n;
     }
 
-    if (actionMode === "deposit") return tokenPosition.walletBalance;
+    if (actionMode === "deposit") return token === "USDC" && tokenPosition.walletBalance > ARC_GAS_RESERVE_USDC
+      ? tokenPosition.walletBalance - ARC_GAS_RESERVE_USDC
+      : token === "USDC" ? 0n : tokenPosition.walletBalance;
     if (actionMode === "withdraw") return maxWithdraw;
     if (actionMode === "borrow") return accountData?.[2] ?? 0n;
-    return tokenPosition.debt < tokenPosition.walletBalance ? tokenPosition.debt : tokenPosition.walletBalance;
-  }, [accountData, actionMode, maxWithdraw, tokenPosition]);
+    const spendableWallet = token === "USDC" && tokenPosition.walletBalance > ARC_GAS_RESERVE_USDC
+      ? tokenPosition.walletBalance - ARC_GAS_RESERVE_USDC
+      : token === "USDC" ? 0n : tokenPosition.walletBalance;
+    return tokenPosition.debt < spendableWallet ? tokenPosition.debt : spendableWallet;
+  }, [accountData, actionMode, maxWithdraw, token, tokenPosition]);
+
+  const hasInsufficientGasReserve = Boolean(address && dataReady && (balances.USDC ?? 0n) < ARC_GAS_RESERVE_USDC);
+  const conflictsWithGasReserve = Boolean(token === "USDC" && tokenPosition && parsedAmount <= tokenPosition.walletBalance && parsedAmount > maxForAction && (actionMode === "deposit" || actionMode === "repay"));
 
   const insufficientWalletBalance = Boolean(
     tokenPosition && (actionMode === "deposit" || actionMode === "repay") && parsedAmount > tokenPosition.walletBalance
@@ -248,6 +267,7 @@ export function LendingPanel({ address, walletClient, agentDraft, onDismissAgent
     !loading &&
     !allowanceLoading &&
     parsedAmount > 0n &&
+    !hasInsufficientGasReserve &&
     !insufficientWalletBalance &&
     !exceedsActionMax;
   const needsApproval = Boolean((actionMode === "deposit" || actionMode === "repay") && parsedAmount > allowance);
@@ -259,6 +279,10 @@ export function LendingPanel({ address, walletClient, agentDraft, onDismissAgent
       ? "Loading Network Data..."
       : parsedAmount === 0n
         ? "Enter Amount"
+        : hasInsufficientGasReserve
+          ? "Keep 0.02 USDC For Gas"
+        : conflictsWithGasReserve
+          ? "Leave 0.02 USDC For Gas"
         : insufficientWalletBalance
           ? `Insufficient ${token} Balance`
           : exceedsActionMax

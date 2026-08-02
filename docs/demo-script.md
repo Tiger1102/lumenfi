@@ -18,7 +18,7 @@
 - The stablecoin pool has active reserves and a working quote.
 - LendingPool lists USDC and EURC and enforces LTV / health checks.
 - Repo is public, licensed, and includes contract tests.
-- The Agent page reads portfolio, lending risk, pool, and block evidence from Arc. It prepares a bounded action draft while the connected wallet remains the only signer.
+- The Agent page reads portfolio, lending risk, pool, and block evidence from Arc. A wallet can sign action allowlists, USDC budgets, expiry, revocation, and block-freshness limits; LumenFi checks them again before the wallet opens.
 
 ## Submission links
 

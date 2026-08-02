@@ -1,9 +1,10 @@
-import { ArrowDownUp } from "lucide-react";
+import { ArrowDownUp, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
 import { isCircleAppKitEnabled, requestSwap } from "../lib/circle";
-import { ARC_TOKENS, formatTokenAmount, parseTokenAmount, type EIP1193Provider, type TokenSymbol } from "../lib/arc";
+import { ARC_GAS_RESERVE_USDC, ARC_TOKENS, formatTokenAmount, parseTokenAmount, type EIP1193Provider, type TokenSymbol } from "../lib/arc";
 import type { AgentActionDraft } from "../lib/agent";
+import { assertAgentDraftPolicy } from "../lib/agentPolicy";
 import { approveSwap, getPoolSwapPreview, getSwapAllowance, poolSwap, supportsPoolSwap, swapPoolAddress } from "../lib/swapPool";
 import { AgentDraftNotice } from "./AgentDraftNotice";
 import { PanelNotice } from "./PanelNotice";
@@ -123,6 +124,10 @@ export function SwapPanel({
   const previewValue = Number(preview);
   const minimumReceived = Number.isFinite(previewValue) && preview ? (previewValue * (1 - slippageValue / 100)).toFixed(4) : "";
   const fromBalance = formatTokenAmount(balances[from] ?? 0n, ARC_TOKENS[from]);
+  const usdcBalance = balances.USDC ?? 0n;
+  const spendableFromBalance = from === "USDC"
+    ? usdcBalance > ARC_GAS_RESERVE_USDC ? usdcBalance - ARC_GAS_RESERVE_USDC : 0n
+    : balances[from] ?? 0n;
   const parsedAmount = useMemo(() => {
     try {
       return parseTokenAmount(amount, ARC_TOKENS[from]);
@@ -130,10 +135,12 @@ export function SwapPanel({
       return 0n;
     }
   }, [amount, from]);
-  const hasInsufficientBalance = Boolean(address && parsedAmount > (balances[from] ?? 0n));
+  const hasInsufficientBalance = Boolean(address && parsedAmount > spendableFromBalance);
+  const hasInsufficientGasReserve = Boolean(address && !balancesLoading && usdcBalance < ARC_GAS_RESERVE_USDC);
+  const conflictsWithGasReserve = Boolean(address && from === "USDC" && parsedAmount <= usdcBalance && parsedAmount > spendableFromBalance);
   const needsApproval = Boolean(address && supportsPoolSwap(from, to) && parsedAmount > allowance);
   const isLoadingNetworkData = balancesLoading || previewLoading || allowanceLoading;
-  const isValidSwap = Boolean(address && walletClient && provider && from !== to && parsedAmount > 0n && !hasInsufficientBalance && !isLoadingNetworkData);
+  const isValidSwap = Boolean(address && walletClient && provider && from !== to && parsedAmount > 0n && !hasInsufficientBalance && !hasInsufficientGasReserve && !isLoadingNetworkData);
   const ctaLabel = !address
     ? "Connect Wallet"
     : isLoadingNetworkData
@@ -142,6 +149,10 @@ export function SwapPanel({
         ? "Select Different Tokens"
         : parsedAmount === 0n
           ? "Enter Amount"
+          : hasInsufficientGasReserve
+            ? "Keep 0.02 USDC For Gas"
+          : conflictsWithGasReserve
+            ? "Leave 0.02 USDC For Gas"
           : hasInsufficientBalance
             ? `Insufficient ${from} Balance`
             : needsApproval ? `Approve ${from}` : "Swap";
@@ -153,7 +164,7 @@ export function SwapPanel({
   }
 
   function setMaxAmount() {
-    setAmount(formatTokenAmount(balances[from] ?? 0n, ARC_TOKENS[from]));
+    setAmount(formatTokenAmount(spendableFromBalance, ARC_TOKENS[from]));
     onDismissAgentDraft?.();
   }
 
@@ -170,6 +181,15 @@ export function SwapPanel({
     if (!provider || !walletClient || !address) {
       setNotice({ status: "error", message: "Connect wallet before swapping." });
       setStatus("Connect wallet before swapping.", "error");
+      return;
+    }
+
+    try {
+      await assertAgentDraftPolicy(address, agentDraft, { action: "swap", asset: from, secondaryAsset: to, amount });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Signed policy validation failed.";
+      setNotice({ status: "error", message });
+      setStatus(message, "error");
       return;
     }
 
@@ -237,6 +257,16 @@ export function SwapPanel({
       <AgentDraftNotice draft={agentDraft?.destination === "swap" ? agentDraft : undefined} onDismiss={onDismissAgentDraft} />
       <PanelNotice status={notice?.status} message={notice?.message} txHash={notice?.txHash} />
 
+      {needsApproval && (
+        <aside className="approvalGuidance">
+          <ShieldAlert size={17} />
+          <div>
+            <strong>Step 1 of 2 · exact token approval</strong>
+            <p>Some wallets label Arc USDC approval as a withdrawal permission. Verify spender {swapPoolAddress.slice(0, 8)}...{swapPoolAddress.slice(-6)} and amount {amount} {from}; no swap occurs in this step.</p>
+          </div>
+        </aside>
+      )}
+
       <div className="swapPanelBody">
         <div className="tokenAmountBox">
           <div className="tokenAmountTop">
@@ -248,6 +278,7 @@ export function SwapPanel({
             <input value={amount} onChange={(event) => { setAmount(event.target.value); onDismissAgentDraft?.(); }} inputMode="decimal" aria-label="Swap amount" />
             <button type="button" onClick={setMaxAmount}>MAX</button>
           </div>
+          {from === "USDC" && <small className="gasReserveNote">Max leaves 0.02 USDC for approval and swap network fees.</small>}
         </div>
 
         <button className="swapReverseButton" type="button" onClick={reverseTokens} aria-label="Reverse swap direction">

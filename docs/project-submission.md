@@ -17,6 +17,7 @@ Source code: https://github.com/Tiger1102/lumenfi
 - Preflight gas estimation and USDC fee checks before contract writes.
 - Explorer-linked transaction receipts.
 - A deterministic action agent grounded in current Arc contract reads.
+- Wallet-signed Agent policies with action, budget, expiry, revocation, and block-freshness controls.
 
 The connected wallet is the only signer. The agent prepares bounded drafts and never holds keys or sends transactions independently.
 
@@ -38,9 +39,9 @@ PermissionlessStablePool: `0x212622812664e37abbb99774ee7488bc721b38b3`
 
 ## Agent boundary
 
-The current agent is an onchain action planner, not an autonomous custodian. It reads balances, lending risk, pool reserves, prices, and block evidence, then prepares a supply, repay, swap, or bridge draft. The destination module refreshes state and the wallet must approve every token allowance and transaction.
+The current agent is an onchain action planner, not an autonomous custodian. It reads balances, lending risk, pool reserves, prices, and block evidence, then prepares a supply, repay, swap, or bridge draft. A connected wallet can sign an EIP-712 policy with action allowlists, per-action and rolling daily USDC-equivalent limits, expiry, immediate revocation, and a maximum draft age. The destination module verifies that policy again before the wallet opens.
 
-No external language model is used in this release. This keeps recommendations reproducible for judging and makes the trust boundary explicit.
+No external language model or session-key relay is used in this release. This keeps recommendations reproducible for judging and makes the trust boundary explicit. The policy protects Agent flows inside LumenFi; it is not represented as onchain smart-account enforcement.
 
 ## Bridge status
 

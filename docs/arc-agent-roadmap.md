@@ -15,14 +15,22 @@ The current agent reads Arc state and prepares bounded user actions.
 
 The agent cannot access private keys, approve tokens, or execute in the background.
 
-## Next: stronger evidence and simulation
+## Live: signed permission controls
 
-- Record the exact block, contract addresses, inputs, and assumptions used for each recommendation.
-- Show expected balance and health changes before the wallet opens.
-- Reject stale drafts after a bounded block or time window.
-- Add structured tests for every intent and degraded-data path.
+The Agent workspace now lets a connected wallet sign an EIP-712 policy for LumenFi-prepared drafts.
 
-## Next: model-assisted explanation
+- Action allowlists for supply, repay, swap, and bridge.
+- Per-action and rolling 24-hour USDC-equivalent limits using the draft's observed asset price.
+- Expiry from one hour to seven days.
+- Immediate local revocation and signed-policy replacement.
+- Maximum Arc block age for recommendation evidence.
+- Signature and policy-hash verification when the policy loads.
+- A second policy check immediately before approval or execution.
+- Existing gas estimation and contract-call simulation before the wallet request.
+
+The signed policy is an application-level guard. It does not create a smart account, grant a session key, or protect calls made outside LumenFi. Every transaction still requires the connected wallet.
+
+## Next: model-assisted reasoning
 
 A server-side reasoning layer may translate natural-language requests into a strict action schema. Contract reads, limits, and transaction construction remain deterministic tools rather than model-generated calldata.
 
@@ -34,16 +42,32 @@ Required controls:
 - Deterministic policy checks after model output.
 - Complete traces for inputs, tools, and final drafts.
 
-## Research: permissioned execution
+## Planned: ERC-4337 execution
 
-Future automation must use a restricted smart-wallet policy rather than unrestricted custody.
+Connect an audited smart-account provider, bundler, and paymaster so short-lived session permissions can submit actions that pass the same LumenFi policy schema.
 
-- Contract and function allowlists.
-- Per-action and daily USDC limits.
-- Expiry and immediate revocation.
-- Simulation before execution.
-- Explicit user confirmation for financial actions.
+- Contract-address and function-selector allowlists.
+- Session-key scope, expiry, and immediate onchain revocation.
+- Per-action and daily limits enforced by the smart account.
+- Bundler and paymaster failure recovery.
+- User-operation simulation before relay.
 - Emergency pause and activity monitoring.
+
+This phase requires an external ERC-4337 provider and independently reviewed smart-account modules. It is not marked live in the current release.
+
+## Planned: independent risk engine
+
+- Resilient oracle inputs and stale-price rejection.
+- Utilization-based borrow and supply rates.
+- Asset caps, liquidation monitoring, and stress tests.
+- Machine-readable explanations for every risk decision.
+
+## Research: cross-chain orchestration
+
+- Route attestations and cost ceilings.
+- Bridge, swap, and lending intent composition.
+- End-to-end settlement states and recovery actions.
+- Chain-specific policy limits and audit trails.
 
 ## Not planned for the current release
 

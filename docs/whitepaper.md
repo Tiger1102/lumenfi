@@ -14,6 +14,8 @@ LumenFi tests a single Arc-native workspace where those decisions remain visible
 
 Users connect an injected EVM wallet, switch to Arc Testnet, and read USDC and EURC balances. Before each contract write, LumenFi estimates gas, applies bounded EIP-1559 fee fields, and verifies that the wallet can cover the maximum network fee in USDC.
 
+USDC Max actions reserve 0.02 USDC for approval and execution fees. Arc RPC fee reads retry before reporting an estimation failure, and the swap interface identifies the exact pool spender and approval amount because wallets can describe Arc's USDC precompile approval in unfamiliar terms.
+
 ### Stablecoin market
 
 The deployed LumenFi pool supports USDC/EURC swaps and permissionless liquidity. The interface shows pool reserves, the current quote, price impact, minimum received, wallet balances, and LP ownership.
@@ -35,6 +37,8 @@ The bridge workspace integrates Circle App Kit for supported testnet routes and 
 The LumenFi Agent is a deterministic, user-controlled action planner. It reads wallet balances, lending positions, pool reserves, asset prices, and the current Arc block, then prepares a bounded swap, supply, repay, or bridge draft.
 
 The current release does not send prompts to an external language model and does not hold keys. It cannot approve tokens or sign transactions. Destination modules refresh live state before execution, and the connected wallet remains the only signer.
+
+Users can sign an EIP-712 policy that constrains Agent-prepared actions by allowlist, per-action USDC-equivalent limit, rolling 24-hour limit, expiry, revocation state, and Arc block freshness. The policy hash and signature are verified when loaded and the active policy is evaluated again before swap, lending, or bridge execution. This is an application-level guard, not a session key or autonomous smart account.
 
 ## Architecture
 
@@ -72,6 +76,8 @@ Core actions: add liquidity, remove liquidity, quote, and swap for USDC/EURC.
 - Testnet assets only.
 - No custody or background execution.
 - Explicit wallet approval for every write.
+- Wallet-signed limits for Agent-prepared actions.
+- Immediate policy revocation and stale-draft rejection.
 - Gas and contract-call preflight before the wallet request.
 - Onchain slippage limits for swaps and liquidity operations.
 - Clear degraded states when RPC, market, or App Kit data is unavailable.
@@ -79,7 +85,7 @@ Core actions: add liquidity, remove liquidity, quote, and swap for USDC/EURC.
 
 ## Current limitations
 
-LumenFi has not completed a smart-contract audit. The lending market uses owner-managed prices, fixed interface rates, and no interest accrual or reserve model. The pool is a compact constant-product implementation with limited testnet liquidity. Bridge completion can span multiple chains and external services.
+LumenFi has not completed a smart-contract audit. The lending market uses owner-managed prices, fixed interface rates, and no interest accrual or reserve model. The pool is a compact constant-product implementation with limited testnet liquidity. Bridge completion can span multiple chains and external services. Signed Agent policies are enforced inside LumenFi and do not restrict direct contract calls made elsewhere.
 
 A production release would require independent audits, invariant and fuzz testing, decentralized price infrastructure, asset caps, pause and incident controls, monitoring, bridge recovery flows, compliance review, and a formal upgrade policy.
 
@@ -87,9 +93,11 @@ A production release would require independent audits, invariant and fuzz testin
 
 1. **Live core:** wallet balances, Arc fee preparation, swap, liquidity, lending, receipts, and contract references.
 2. **Bridge beta:** verified App Kit route execution, progress events, retry handling, and clearer source-chain requirements.
-3. **Agent evidence:** richer transaction simulation, signed analysis records, and reproducible recommendation inputs.
-4. **Permissioned execution research:** smart-wallet policies with action allowlists, value limits, expiry, revocation, and explicit confirmation.
-5. **Production readiness:** audits, oracle design, monitoring, risk controls, and legal review.
+3. **Signed policy guard live:** action allowlists, value limits, rolling usage, expiry, revocation, block freshness, and final preflight.
+4. **Model-assisted reasoning:** schema-bound natural-language intent with deterministic tools and complete traces.
+5. **ERC-4337 execution:** audited smart accounts, session permissions, bundler, paymaster, and onchain policy enforcement.
+6. **Risk infrastructure:** oracle design, dynamic rates, monitoring, stress tests, audits, and incident controls.
+7. **Cross-chain orchestration:** composed intents, route attestations, recovery states, and settlement tracking.
 
 ## Verification
 
