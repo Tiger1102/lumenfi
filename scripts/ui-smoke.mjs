@@ -8,6 +8,7 @@ const chromePath =
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const baseUrl = process.env.UI_BASE_URL || "http://127.0.0.1:5173";
 const captureDir = process.env.UI_CAPTURE_DIR;
+const mockWallet = process.env.UI_MOCK_WALLET === "1";
 const profileDir = mkdtempSync(join(tmpdir(), "lumenfi-ui-smoke-"));
 const chrome = spawn(
   chromePath,
@@ -169,6 +170,24 @@ try {
   await session.send("Page.enable");
   await session.send("Runtime.enable");
 
+  if (mockWallet) {
+    await session.send("Page.addScriptToEvaluateOnNewDocument", {
+      source: `(() => {
+        const address = "0x8ad78dacc1dc13ee0f0180eb991d2fdbc10af1d1";
+        window.ethereum = {
+          request: async ({ method }) => {
+            if (method === "eth_requestAccounts" || method === "eth_accounts") return [address];
+            if (method === "eth_chainId") return "0x4cf4b2";
+            if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") return null;
+            throw new Error("Mock wallet does not implement " + method);
+          },
+          on: () => undefined,
+          removeListener: () => undefined
+        };
+      })();`
+    });
+  }
+
   const results = [];
   await navigate(session, "/", { width: 1440, height: 1000, mobile: false });
   results.push(await inspect(session, "overview-desktop"));
@@ -202,6 +221,11 @@ try {
   results.push(await inspect(session, "market-mobile"));
   await capture(session, "market-mobile");
 
+  await evaluate(session, `document.querySelectorAll(".moduleTabs button")[1]?.click()`);
+  await delay(1_500);
+  results.push(await inspect(session, "market-liquidity-mobile"));
+  await capture(session, "market-liquidity-mobile");
+
   await navigate(session, "/market", { width: 844, height: 390, mobile: true });
   results.push(await inspect(session, "market-landscape"));
   await capture(session, "market-landscape");
@@ -214,6 +238,33 @@ try {
   results.push(await inspect(session, "agent-mobile"));
   await capture(session, "agent-mobile");
 
+  if (mockWallet) {
+    await evaluate(session, `(() => {
+      const button = document.querySelector(".connectButton");
+      if (button && !/disconnect/i.test(button.textContent || "")) button.click();
+    })()`);
+    await delay(4_000);
+    const policyVisible = await evaluate(session, `Boolean(document.querySelector(".agentPolicyConsole") && document.querySelector("#agent-policy-title")?.textContent?.includes("Permission controls"))`);
+    if (!policyVisible) throw new Error("Signed policy console was not rendered for the connected mock wallet.");
+    await evaluate(session, `document.querySelector(".agentPolicyConsole")?.scrollIntoView({ block: "start" })`);
+    await delay(300);
+    results.push(await inspect(session, "agent-policy-mobile"));
+    await capture(session, "agent-policy-mobile");
+
+    await navigate(session, "/market", { width: 390, height: 844, mobile: true });
+    await evaluate(session, `(() => {
+      const button = document.querySelector(".connectButton");
+      if (button && !/disconnect/i.test(button.textContent || "")) button.click();
+    })()`);
+    await delay(4_000);
+    const approvalVisible = await evaluate(session, `Boolean(document.querySelector(".approvalGuidance")?.textContent?.includes("exact token approval"))`);
+    if (!approvalVisible) throw new Error("Swap approval guidance was not rendered for the connected mock wallet.");
+    await evaluate(session, `document.querySelector(".approvalGuidance")?.scrollIntoView({ block: "center" })`);
+    await delay(300);
+    results.push(await inspect(session, "swap-approval-mobile"));
+    await capture(session, "swap-approval-mobile");
+  }
+
   await navigate(session, "/docs", { width: 1440, height: 1000, mobile: false });
   results.push(await inspect(session, "docs-desktop"));
   await capture(session, "docs-desktop");
@@ -221,6 +272,14 @@ try {
   await navigate(session, "/docs", { width: 390, height: 844, mobile: true });
   results.push(await inspect(session, "docs-mobile"));
   await capture(session, "docs-mobile");
+
+  await navigate(session, "/", { width: 1440, height: 1000, mobile: false });
+  const roadmapReady = await evaluate(session, `document.querySelectorAll(".roadmapCard").length === 11 && document.querySelector("#roadmap")?.textContent?.includes("Signed permission controls")`);
+  if (!roadmapReady) throw new Error("Roadmap does not expose all eleven verified and future milestones.");
+  await evaluate(session, `document.querySelector("#roadmap")?.scrollIntoView({ block: "start" })`);
+  await delay(300);
+  results.push(await inspect(session, "roadmap-desktop"));
+  await capture(session, "roadmap-desktop");
 
   console.log(JSON.stringify(results, null, 2));
   session.socket.close();

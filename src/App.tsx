@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { DocsPage } from "./components/DocsPage";
 import { roadmapItems } from "./content/roadmap";
 import type { AgentActionDraft, AgentActivity, AgentDestination } from "./lib/agent";
+import { readAgentActivity, saveAgentActivity } from "./lib/agentPolicy";
 import { arcPublicClient, ARC_TESTNET_CHAIN_ID, ARC_TOKENS, BALANCE_TOKEN_SYMBOLS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, switchToArc, type TokenSymbol } from "./lib/arc";
 import { lendingPoolAddress } from "./lib/lending";
 import { swapPoolAddress } from "./lib/swapPool";
@@ -74,17 +75,6 @@ const marketTabs: { id: MarketTab; label: string }[] = [
   { id: "lending", label: "Lending Market" }
 ];
 
-const AGENT_ACTIVITY_STORAGE_KEY = "lumenfi:agent-activity:v1";
-
-function readAgentActivity(): AgentActivity[] {
-  try {
-    const stored = window.localStorage.getItem(AGENT_ACTIVITY_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as AgentActivity[]).slice(0, 12) : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function App() {
   const [wallet, setWallet] = useState<ConnectedWallet>();
   const [balances, setBalances] = useState<Partial<Record<TokenSymbol, bigint>>>({});
@@ -137,6 +127,7 @@ export default function App() {
           action: agentDraft.action,
           asset: agentDraft.secondaryAsset ? `${agentDraft.asset} → ${agentDraft.secondaryAsset}` : agentDraft.asset,
           amount: agentDraft.amount,
+          budgetAmountUsd: agentDraft.budgetAmountUsd,
           destination: agentDraft.destination,
           txHash,
           completedAt: new Date().toISOString()
@@ -144,7 +135,7 @@ export default function App() {
         setAgentActivity((current) => {
           const next = [completed, ...current.filter((item) => item.txHash !== txHash)].slice(0, 12);
           try {
-            window.localStorage.setItem(AGENT_ACTIVITY_STORAGE_KEY, JSON.stringify(next));
+            saveAgentActivity(next);
           } catch {
             // The in-memory receipt still remains available when storage is blocked.
           }
@@ -547,6 +538,7 @@ export default function App() {
                   <LendingPanel
                     address={wallet?.address}
                     walletClient={wallet?.walletClient}
+                    balances={balances}
                     agentDraft={agentDraft}
                     onDismissAgentDraft={() => setAgentDraft(undefined)}
                     onConnect={connect}
@@ -590,6 +582,7 @@ export default function App() {
           <Suspense fallback={<ModuleFallback label="Loading LumenFi Agent..." />}>
             <AgentPanel
               address={wallet?.address}
+              walletClient={wallet?.walletClient}
               balances={balances}
               balancesLoading={balancesLoading}
               activity={agentActivity}

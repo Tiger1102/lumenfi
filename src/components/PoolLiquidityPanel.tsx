@@ -1,7 +1,8 @@
 import { RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address, WalletClient } from "viem";
-import { ARC_TOKENS, arcPublicClient, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, readWithRetry } from "../lib/arc";
+import { ARC_GAS_RESERVE_USDC, ARC_TOKENS, arcPublicClient, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, readWithRetry } from "../lib/arc";
+import { getLendingAssetPrice } from "../lib/lending";
 import { formatLpAmount, managePoolLiquidity, poolPosition, quoteRemoveLiquidity, removePoolLiquidity, swapPoolAddress } from "../lib/swapPool";
 import { PanelNotice } from "./PanelNotice";
 
@@ -40,6 +41,7 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
   const [removePercent, setRemovePercent] = useState("25");
   const [position, setPosition] = useState<PoolPosition | null>(null);
   const [walletBalances, setWalletBalances] = useState({ USDC: 0n, EURC: 0n });
+  const [assetPrices, setAssetPrices] = useState({ USDC: 1, EURC: 1, live: false });
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
 
@@ -51,21 +53,30 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
     setLoading(true);
 
     try {
-      const nextPosition = await poolPosition(address);
-      const usdcBalance = address
-        ? await readWithRetry(
-            () => arcPublicClient.readContract({ address: getTokenAddress("USDC"), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
-            "USDC wallet balance"
-          )
-        : 0n;
-      const eurcBalance = address
-        ? await readWithRetry(
-            () => arcPublicClient.readContract({ address: getTokenAddress("EURC"), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
-            "EURC wallet balance"
-          )
-        : 0n;
+      const [nextPosition, usdcBalance, eurcBalance, priceResult] = await Promise.all([
+        poolPosition(address),
+        address
+          ? readWithRetry(
+              () => arcPublicClient.readContract({ address: getTokenAddress("USDC"), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+              "USDC wallet balance"
+            )
+          : Promise.resolve(0n),
+        address
+          ? readWithRetry(
+              () => arcPublicClient.readContract({ address: getTokenAddress("EURC"), abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+              "EURC wallet balance"
+            )
+          : Promise.resolve(0n),
+        Promise.allSettled([getLendingAssetPrice("USDC"), getLendingAssetPrice("EURC")])
+      ]);
       setPosition(nextPosition);
       setWalletBalances({ USDC: usdcBalance, EURC: eurcBalance });
+      const [usdcPrice, eurcPrice] = priceResult;
+      setAssetPrices({
+        USDC: usdcPrice.status === "fulfilled" ? Number(formatTokenAmount(usdcPrice.value, ARC_TOKENS.USDC)) : 1,
+        EURC: eurcPrice.status === "fulfilled" ? Number(formatTokenAmount(eurcPrice.value, ARC_TOKENS.EURC)) : 1,
+        live: usdcPrice.status === "fulfilled" && eurcPrice.status === "fulfilled"
+      });
     } catch (error) {
       const message = error instanceof Error ? `Pool read failed: ${error.message}` : "Pool read failed.";
       setNotice({ status: "error", message });
@@ -133,7 +144,9 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
 
   const userUsdc = position && position.totalSupply > 0n ? (position.lpBalance * position.usdcReserve) / position.totalSupply : 0n;
   const userEurc = position && position.totalSupply > 0n ? (position.lpBalance * position.eurcReserve) / position.totalSupply : 0n;
-  const poolValue = Number(formatTokenAmount(userUsdc, ARC_TOKENS.USDC)) + Number(formatTokenAmount(userEurc, ARC_TOKENS.EURC));
+  const totalPoolLiquidity =
+    Number(formatTokenAmount(position?.usdcReserve ?? 0n, ARC_TOKENS.USDC)) * assetPrices.USDC +
+    Number(formatTokenAmount(position?.eurcReserve ?? 0n, ARC_TOKENS.EURC)) * assetPrices.EURC;
   const parsedRemovePercent = Math.max(0, Math.min(100, Number(removePercent) || 0));
   const sharesToRemove =
     position?.lpBalance && parsedRemovePercent >= 100
@@ -160,9 +173,12 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
   const addAmountsInvalid = parsedUsdcAmount === 0n || parsedEurcAmount === 0n;
   const insufficientUsdc = parsedUsdcAmount > walletBalances.USDC;
   const insufficientEurc = parsedEurcAmount > walletBalances.EURC;
+  const maxUsdcForLiquidity = walletBalances.USDC > ARC_GAS_RESERVE_USDC ? walletBalances.USDC - ARC_GAS_RESERVE_USDC : 0n;
+  const needsGasReserve = mode === "add" ? parsedUsdcAmount > maxUsdcForLiquidity : walletBalances.USDC < ARC_GAS_RESERVE_USDC;
   const canExecute =
     Boolean(address && walletClient && swapPoolAddress) &&
     !loading &&
+    !needsGasReserve &&
     (mode === "add" ? !addAmountsInvalid && !insufficientUsdc && !insufficientEurc : hasLpPosition && sharesToRemove > 0n);
   const buttonLabel = !address
     ? "Connect Wallet"
@@ -170,6 +186,8 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
       ? "Loading Network Data..."
       : mode === "add" && insufficientUsdc
         ? "Insufficient USDC Balance"
+        : needsGasReserve
+          ? "Keep 0.02 USDC For Gas"
         : mode === "add" && insufficientEurc
           ? "Insufficient EURC Balance"
           : mode === "add" && addAmountsInvalid
@@ -210,9 +228,9 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
 
       <div className="poolProStats">
         <div className="poolProCard primary">
-          <span>My pool assets</span>
-          <strong>{loading ? <i className="skeletonText" /> : `$${poolValue.toLocaleString("en-US", { maximumFractionDigits: 4 })}`}</strong>
-          <em>{loading ? <i className="skeletonText tiny" /> : `${poolShare} of active pool`}</em>
+          <span>Total pool liquidity</span>
+          <strong>{loading ? <i className="skeletonText" /> : `$${totalPoolLiquidity.toLocaleString("en-US", { maximumFractionDigits: 2 })}`}</strong>
+          <em>{loading ? <i className="skeletonText tiny" /> : assetPrices.live ? "Live USD oracle value" : "Stablecoin parity estimate"}</em>
         </div>
 
         <div className="poolProCard">
@@ -238,6 +256,7 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
         <div className="poolProCard">
           <span>My LP shares</span>
           <strong>{loading ? <i className="skeletonText small" /> : formatLpAmount(position?.lpBalance ?? 0n)}</strong>
+          <em>{loading ? <i className="skeletonText tiny" /> : `${poolShare} of active pool`}</em>
         </div>
       </div>
 
@@ -251,11 +270,11 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
               </span>
               <div>
                 <input value={usdcAmount} onChange={(event) => setUsdcAmount(event.target.value)} inputMode="decimal" />
-                <button type="button" onClick={() => setUsdcAmount(formatTokenAmount(walletBalances.USDC, ARC_TOKENS.USDC))}>
+                <button type="button" onClick={() => setUsdcAmount(formatTokenAmount(maxUsdcForLiquidity, ARC_TOKENS.USDC))}>
                   MAX
                 </button>
               </div>
-              <small>Wallet {formatTokenAmount(walletBalances.USDC, ARC_TOKENS.USDC)} USDC</small>
+              <small>Wallet {formatTokenAmount(walletBalances.USDC, ARC_TOKENS.USDC)} USDC · Max keeps 0.02 for gas</small>
             </label>
             <label className="poolAssetInput">
               <span>

@@ -33,7 +33,12 @@ export function AgentDraftNotice({ draft, onDismiss }: AgentDraftNoticeProps) {
       <div className="agentDraftChecks">
         {draft.checks.map((check) => <span key={check}><Check size={12} />{check}</span>)}
       </div>
-      <p className="agentDraftBoundary">Review the live values below. No transaction has been sent.</p>
+      {draft.policyAuthorization && (
+        <p className="agentDraftPolicy">
+          <Check size={13} />Signed policy {draft.policyAuthorization.policyId.slice(0, 8)}...{draft.policyAuthorization.policyId.slice(-6)} · expires {new Date(draft.policyAuthorization.expiresAt).toLocaleString()}
+        </p>
+      )}
+      <p className="agentDraftBoundary">Policy and live values are checked again before the wallet opens. No transaction has been sent.</p>
     </aside>
   );
 }

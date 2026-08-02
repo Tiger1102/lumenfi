@@ -1,8 +1,9 @@
-import { ArrowRight, Bot, BrainCircuit, CheckCircle2, Clock3, Database, ExternalLink, RefreshCcw, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, BrainCircuit, CheckCircle2, CircleSlash2, Clock3, Database, ExternalLink, RefreshCcw, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Address } from "viem";
+import type { Address, WalletClient } from "viem";
 import type { TokenSymbol } from "../lib/arc";
 import { AgentTrace } from "./AgentTrace";
+import { AutomationPolicyPanel } from "./AutomationPolicyPanel";
 import {
   buildAgentAnswer,
   loadAgentSnapshot,
@@ -12,9 +13,11 @@ import {
   type AgentDestination,
   type AgentSnapshot
 } from "../lib/agent";
+import { attachPolicyAuthorization, evaluateAgentPolicy, loadVerifiedAgentPolicy, type SignedAgentPolicy } from "../lib/agentPolicy";
 
 type AgentPanelProps = {
   address?: Address;
+  walletClient?: WalletClient;
   balances: Partial<Record<TokenSymbol, bigint>>;
   balancesLoading: boolean;
   activity: AgentActivity[];
@@ -30,12 +33,14 @@ const promptPresets = [
   "Prepare a bridge"
 ];
 
-export function AgentPanel({ address, balances, balancesLoading, activity, onConnect, onNavigate }: AgentPanelProps) {
+export function AgentPanel({ address, walletClient, balances, balancesLoading, activity, onConnect, onNavigate }: AgentPanelProps) {
   const [snapshot, setSnapshot] = useState<AgentSnapshot>();
   const [answer, setAnswer] = useState<AgentAnswer>();
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [policy, setPolicy] = useState<SignedAgentPolicy>();
+  const [policyError, setPolicyError] = useState("");
   const requestRef = useRef(0);
 
   async function refresh(nextPrompt = "Review my portfolio") {
@@ -82,6 +87,28 @@ export function AgentPanel({ address, balances, balancesLoading, activity, onCon
       requestRef.current += 1;
     };
   }, [address, balancesLoading]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPolicy(undefined);
+    setPolicyError("");
+    if (!address) return;
+    loadVerifiedAgentPolicy(address)
+      .then((record) => { if (!cancelled) setPolicy(record); })
+      .catch((cause) => { if (!cancelled) setPolicyError(cause instanceof Error ? cause.message : "Stored policy could not be verified."); });
+    return () => { cancelled = true; };
+  }, [address]);
+
+  function openRecommendation(destination: AgentDestination, draft?: AgentActionDraft) {
+    if (draft && policyError) return;
+    if (!draft || !policy || !snapshot) {
+      onNavigate(destination, draft);
+      return;
+    }
+    const decision = evaluateAgentPolicy(policy, draft, activity, snapshot.blockNumber);
+    if (!decision.allowed) return;
+    onNavigate(destination, attachPolicyAuthorization(draft, policy));
+  }
 
   if (!address) {
     return (
@@ -136,6 +163,15 @@ export function AgentPanel({ address, balances, balancesLoading, activity, onCon
           <RefreshCcw className={loading ? "spin" : ""} size={16} />
           {loading ? "Reading Arc state..." : "Refresh onchain evidence"}
         </button>
+
+        <AutomationPolicyPanel
+          address={address}
+          walletClient={walletClient}
+          activity={activity}
+          policy={policy}
+          policyError={policyError}
+          onPolicyChange={(record) => { setPolicy(record); setPolicyError(""); }}
+        />
       </div>
 
       <div className="agentOutput" aria-live="polite">
@@ -170,8 +206,16 @@ export function AgentPanel({ address, balances, balancesLoading, activity, onCon
 
             <div className="agentRecommendations">
               <p className="agentSectionLabel">Prepared action plan</p>
-              {answer.recommendations.map((item) => (
-                <article className={`agentRecommendation ${item.tone}`} key={`${item.destination}-${item.title}`}>
+              {answer.recommendations.map((item) => {
+                const policyDecision = item.draft
+                  ? policy
+                    ? evaluateAgentPolicy(policy, item.draft, activity, snapshot.blockNumber)
+                    : policyError
+                      ? { allowed: false, title: "Policy verification failed", reason: policyError }
+                      : undefined
+                  : undefined;
+                return (
+                <article className={`agentRecommendation ${item.tone}${policyDecision && !policyDecision.allowed ? " policyBlocked" : ""}`} key={`${item.destination}-${item.title}`}>
                   <div>
                     <strong>{item.title}</strong>
                     <p>{item.description}</p>
@@ -182,10 +226,19 @@ export function AgentPanel({ address, balances, balancesLoading, activity, onCon
                         <small>{item.draft.expectedOutcome}</small>
                       </div>
                     )}
+                    {policyDecision && (
+                      <div className={`agentPolicyDecision ${policyDecision.allowed ? "allowed" : "blocked"}`}>
+                        {policyDecision.allowed ? <ShieldCheck size={14} /> : <CircleSlash2 size={14} />}
+                        <span><strong>{policyDecision.title}</strong><small>{policyDecision.reason}</small></span>
+                      </div>
+                    )}
                   </div>
-                  <button type="button" onClick={() => onNavigate(item.destination, item.draft)}>{item.actionLabel}<ArrowRight size={15} /></button>
+                  <button type="button" disabled={Boolean(policyDecision && !policyDecision.allowed)} onClick={() => openRecommendation(item.destination, item.draft)}>
+                    {policyDecision && !policyDecision.allowed ? "Blocked by policy" : item.actionLabel}<ArrowRight size={15} />
+                  </button>
                 </article>
-              ))}
+                );
+              })}
             </div>
 
             {activity.length > 0 && (

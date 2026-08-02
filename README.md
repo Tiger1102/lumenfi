@@ -8,7 +8,7 @@ LumenFi is an Arc Testnet stablecoin DeFi workspace with five reviewable product
 - USDC bridge preparation and unified balance hooks through Circle App Kit.
 - A Solidity lending pool for USDC/EURC collateral and borrowing.
 
-The overview links to public contracts and the active market module keeps transaction status and explorer receipts in context. The LumenFi Agent reads Arc state and prepares bounded action drafts while wallet approval and signing remain user-controlled.
+The overview links to public contracts and the active market module keeps transaction status and explorer receipts in context. The LumenFi Agent reads Arc state, prepares bounded action drafts, and can enforce wallet-signed action, budget, expiry, revocation, and evidence-freshness policies before wallet approval.
 
 ## Why Arc
 
@@ -19,7 +19,7 @@ The project highlights four Arc-relevant ideas:
 - Stablecoin-first UX for swaps, LP positions, and credit markets.
 - USDC-denominated onboarding and transaction context.
 - Testnet contracts that make Arc balances actionable from one interface.
-- A deterministic action planner with live onchain evidence and a separate path toward tightly scoped, user-approved automation.
+- A deterministic action planner with live onchain evidence and signed permission controls, plus a separate path toward ERC-4337 session execution.
 
 ## Judge Quick Review
 
@@ -136,6 +136,8 @@ npx wrangler pages deploy dist --project-name lumenfi --commit-dirty=true
 Arc uses USDC as native gas with 18 decimals, while ERC-20 USDC uses 6 decimals at `0x3600000000000000000000000000000000000000`. The app and lending pool use ERC-20 balances and approvals.
 
 Before opening the wallet confirmation, LumenFi estimates contract gas through Arc RPC, adds a 25% gas-limit buffer, applies an EIP-1559 max-fee floor of 30 Gwei with a 1 Gwei priority fee, and checks the wallet's native USDC gas balance. Supplying these values prevents injected wallets from remaining indefinitely on “estimating network fee.” The wallet-add flow uses Arc's primary RPC and six display decimals as recommended for wallet integrations.
+
+USDC Max actions keep a 0.02 USDC reserve for approval plus execution fees. Fee, gas-balance, and gas-limit reads retry once across Arc RPC fallbacks. Arc's USDC ERC-20 interface is a precompile, so some wallets may describe an exact `approve` call as a withdrawal permission; LumenFi shows the expected spender and amount before that wallet request.
 
 The lending pool is an MVP contract, not production lending infrastructure. Before mainnet use it needs audited accounting, oracle hardening, interest accrual, reserves, liquidation testing, and risk parameters per asset.
 

@@ -44,8 +44,32 @@ export const roadmapItems: RoadmapItem[] = [
   },
   {
     phase: "07",
-    title: "Permissioned automation",
+    title: "Signed permission controls",
+    status: "Live",
+    copy: "Wallet-signed policies now constrain Agent drafts with action allowlists, per-action and rolling daily USDC-equivalent limits, expiry, immediate revocation, block freshness, and a final preflight before execution."
+  },
+  {
+    phase: "08",
+    title: "Model-assisted reasoning",
+    status: "Next",
+    copy: "Add a server-side model that converts natural-language goals into a strict action schema, while deterministic tools own contract reads, policy decisions, simulations, and calldata."
+  },
+  {
+    phase: "09",
+    title: "ERC-4337 smart-account relay",
+    status: "Planned",
+    copy: "Connect an audited smart-account, bundler, and paymaster stack so short-lived session permissions can submit policy-approved actions without exposing keys or granting unrestricted custody."
+  },
+  {
+    phase: "10",
+    title: "Independent risk engine",
+    status: "Planned",
+    copy: "Replace owner-managed prices and fixed rates with resilient oracle inputs, utilization-based rates, liquidation monitoring, stress tests, and machine-readable risk explanations."
+  },
+  {
+    phase: "11",
+    title: "Cross-chain strategy orchestration",
     status: "Research",
-    copy: "Extend today's user-approved action drafts with smart wallets and session keys using action allowlists, USDC limits, expiry, revocation, and simulation. No custody or unrestricted execution."
+    copy: "Coordinate bridge, swap, and lending intents across supported networks with route attestations, recovery states, cost ceilings, and end-to-end settlement tracking."
   }
 ];

@@ -4,6 +4,7 @@ import { isAddress, type Address } from "viem";
 import { estimateBridge, requestBridge, requestUnifiedBalances } from "../lib/circle";
 import { arcPublicClient, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, type EIP1193Provider } from "../lib/arc";
 import type { AgentActionDraft } from "../lib/agent";
+import { assertAgentDraftPolicy } from "../lib/agentPolicy";
 import { AgentDraftNotice } from "./AgentDraftNotice";
 import { PanelNotice } from "./PanelNotice";
 
@@ -131,6 +132,7 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
 
     try {
       const destination = validateRouteInput();
+      await assertAgentDraftPolicy(address, agentDraft, { action: "bridge", asset: "USDC", amount });
       setBusyAction("bridge");
       setNotice({ status: "loading", message: "Bridge request pending in wallet..." });
       setStatus("Checking USDC bridge route...", "loading");

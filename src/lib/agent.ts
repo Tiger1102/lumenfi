@@ -14,12 +14,17 @@ export type AgentActionDraft = {
   asset: "USDC" | "EURC";
   secondaryAsset?: "USDC" | "EURC";
   amount: string;
+  budgetAmountUsd?: string;
   title: string;
   rationale: string;
   expectedOutcome: string;
   checks: string[];
   createdAt: string;
   sourceBlock?: string;
+  policyAuthorization?: {
+    policyId: `0x${string}`;
+    expiresAt: string;
+  };
 };
 
 export type AgentActivity = {
@@ -28,6 +33,7 @@ export type AgentActivity = {
   action: AgentActionKind;
   asset: string;
   amount: string;
+  budgetAmountUsd?: string;
   destination: AgentDestination;
   txHash: string;
   completedAt: string;
@@ -205,8 +211,11 @@ function createDraft(
   snapshot: AgentSnapshot,
   input: Omit<AgentActionDraft, "id" | "createdAt" | "sourceBlock">
 ): AgentActionDraft {
+  const assetPrice = input.asset === "USDC" ? snapshot.wallet.usdcPriceUsd : snapshot.wallet.eurcPriceUsd;
+  const budgetAmountUsd = Number(input.amount) * assetPrice;
   return {
     ...input,
+    budgetAmountUsd: Number.isFinite(budgetAmountUsd) ? budgetAmountUsd.toFixed(6) : input.amount,
     id: `${input.action}-${snapshot.observedAt}`,
     createdAt: snapshot.observedAt,
     sourceBlock: snapshot.blockNumber

@@ -4,7 +4,8 @@ import { parseGwei, type Hex } from "viem";
 
 export const ARC_TESTNET_CHAIN_ID = 5042002;
 export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
-const configuredFallbackRpcs = (import.meta.env.VITE_ARC_FALLBACK_RPCS || "")
+export const ARC_GAS_RESERVE_USDC = 20_000n;
+const configuredFallbackRpcs = (import.meta.env?.VITE_ARC_FALLBACK_RPCS || "")
   .split(",")
   .map((url) => url.trim().replace(/\/+$/, ""))
   .filter(Boolean);
@@ -62,6 +63,9 @@ function larger(value: bigint | undefined, minimum: bigint) {
 
 function transactionPreparationError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  if (/request limit|rate limit|too many requests|429|timeout/i.test(message)) {
+    return new Error("Arc RPC is busy while estimating the network fee. Wait a moment and retry; your wallet balance has not changed.");
+  }
   if (/insufficient funds|insufficient.*gas/i.test(message)) {
     return new Error("Insufficient USDC for Arc network fees. Add Arc Testnet USDC from the Circle Faucet and try again.");
   }
@@ -77,9 +81,9 @@ export async function prepareArcTransaction(input: {
   data: Hex;
 }): Promise<ArcTransactionGas> {
   const [gasResult, feesResult, balanceResult] = await Promise.allSettled([
-    arcPublicClient.estimateGas({ account: input.account, to: input.to, data: input.data }),
-    arcPublicClient.estimateFeesPerGas({ type: "eip1559" }),
-    arcPublicClient.getBalance({ address: input.account })
+    readWithRetry(() => arcPublicClient.estimateGas({ account: input.account, to: input.to, data: input.data }), "Arc gas estimate"),
+    readWithRetry(() => arcPublicClient.estimateFeesPerGas({ type: "eip1559" }), "Arc fee estimate"),
+    readWithRetry(() => arcPublicClient.getBalance({ address: input.account }), "Arc gas balance")
   ]);
 
   if (gasResult.status === "rejected") {
@@ -130,7 +134,7 @@ export const ARC_TOKENS: Record<TokenSymbol, ArcToken> = {
   cirBTC: {
     symbol: "cirBTC",
     name: "Circle Bitcoin",
-    address: (import.meta.env.VITE_CIRBTC_ADDRESS || undefined) as Address | undefined,
+    address: (import.meta.env?.VITE_CIRBTC_ADDRESS || undefined) as Address | undefined,
     decimals: 8,
     accent: "#f7931a"
   }
