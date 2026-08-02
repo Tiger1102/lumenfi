@@ -62,7 +62,7 @@ async function main() {
       address: swapPool.address,
       abi: swapPoolAbi,
       functionName: "addLiquidity",
-      args: [usdcAmount, eurcAmount, 0n],
+      args: [usdcAmount, eurcAmount, (SEED_LIQUIDITY * 9_950n) / 10_000n],
       account: walletClient.account
     });
     await publicClient.waitForTransactionReceipt({ hash });

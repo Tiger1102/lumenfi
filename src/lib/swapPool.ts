@@ -3,6 +3,9 @@ import { encodeFunctionData } from "viem";
 import { arcPublicClient, arcTestnet, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, parseTokenAmount, prepareArcTransaction, readWithRetry, type TokenSymbol } from "./arc";
 
 export const swapPoolAddress = (import.meta.env.VITE_SWAP_POOL_ADDRESS || "") as Address;
+const LP_DECIMALS = 6;
+const LIQUIDITY_SLIPPAGE_BPS = 50n;
+const BPS = 10_000n;
 
 export const swapPoolAbi = [
   {
@@ -64,7 +67,9 @@ export const swapPoolAbi = [
     stateMutability: "nonpayable",
     inputs: [
       { name: "tokenIn", type: "address" },
-      { name: "amountIn", type: "uint256" }
+      { name: "amountIn", type: "uint256" },
+      { name: "minAmountOut", type: "uint256" },
+      { name: "deadline", type: "uint256" }
     ],
     outputs: [
       { name: "tokenOut", type: "address" },
@@ -198,14 +203,33 @@ export async function poolPosition(account?: Address) {
 }
 
 export function formatLpAmount(value: bigint) {
-  const formatted = formatUnits(value, 18);
+  const formatted = formatUnits(value, LP_DECIMALS);
   const [whole, fraction = ""] = formatted.split(".");
   const trimmed = fraction.slice(0, 4).replace(/0+$/, "");
   return trimmed ? `${whole}.${trimmed}` : whole;
 }
 
 export function parseLpAmount(value: string) {
-  return parseUnits(value || "0", 18);
+  return parseUnits(value || "0", LP_DECIMALS);
+}
+
+function minBigInt(a: bigint, b: bigint) {
+  return a < b ? a : b;
+}
+
+function sqrtBigInt(value: bigint) {
+  if (value < 2n) return value;
+  let current = value;
+  let next = (current + value / current) / 2n;
+  while (next < current) {
+    current = next;
+    next = (current + value / current) / 2n;
+  }
+  return current;
+}
+
+function withLiquiditySlippage(value: bigint) {
+  return (value * (BPS - LIQUIDITY_SLIPPAGE_BPS)) / BPS;
 }
 
 export function quoteRemoveLiquidity(position: {
@@ -242,11 +266,12 @@ export async function removePoolLiquidity(walletClient: WalletClient, account: A
     throw new Error("Remove amount exceeds your LP balance.");
   }
 
+  const quote = quoteRemoveLiquidity(position, shares);
   const request = {
     address: swapPoolAddress,
     abi: swapPoolAbi,
     functionName: "removeLiquidity",
-    args: [shares, 0n, 0n, account],
+    args: [shares, withLiquiditySlippage(quote.usdcAmount), withLiquiditySlippage(quote.eurcAmount), account],
     account,
     chain: arcTestnet
   } as const;
@@ -308,11 +333,27 @@ export async function managePoolLiquidity(
       }
     }
 
+    const position = await poolPosition(account);
+    if (!position) {
+      throw new Error("Pool state is unavailable. Refresh and try again.");
+    }
+    const expectedShares = position.totalSupply === 0n
+      ? sqrtBigInt(usdcAmount * eurcAmount)
+      : position.usdcReserve > 0n && position.eurcReserve > 0n
+        ? minBigInt(
+            (usdcAmount * position.totalSupply) / position.usdcReserve,
+            (eurcAmount * position.totalSupply) / position.eurcReserve
+          )
+        : 0n;
+    if (expectedShares === 0n) {
+      throw new Error("These amounts would mint no LP shares.");
+    }
+
     const request = {
       address: swapPoolAddress,
       abi: swapPoolAbi,
       functionName: "addLiquidity",
-      args: [usdcAmount, eurcAmount, 0n],
+      args: [usdcAmount, eurcAmount, withLiquiditySlippage(expectedShares)],
       account,
       chain: arcTestnet
     } as const;
@@ -324,7 +365,7 @@ export async function managePoolLiquidity(
   return removePoolLiquidity(walletClient, account, parseLpAmount(sharesText));
 }
 
-export async function poolSwap(walletClient: WalletClient, owner: Address, from: TokenSymbol, to: TokenSymbol, amountText: string) {
+export async function poolSwap(walletClient: WalletClient, owner: Address, from: TokenSymbol, to: TokenSymbol, amountText: string, slippageBps = 50) {
   if (!swapPoolAddress) {
     throw new Error("Swap pool is not configured for this deployment");
   }
@@ -371,11 +412,15 @@ export async function poolSwap(walletClient: WalletClient, owner: Address, from:
     await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
   }
 
+  const boundedSlippageBps = BigInt(Math.max(0, Math.min(5_000, Math.round(slippageBps))));
+  const minimumAmountOut = (preview.amountOut * (BPS - boundedSlippageBps)) / BPS;
+  const deadline = BigInt(Math.floor(Date.now() / 1_000) + 20 * 60);
+
   const request = {
     address: swapPoolAddress,
     abi: swapPoolAbi,
     functionName: "swap",
-    args: [tokenAddress, amountIn],
+    args: [tokenAddress, amountIn, minimumAmountOut, deadline],
     account: owner,
     chain: arcTestnet
   } as const;

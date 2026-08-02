@@ -1,6 +1,6 @@
 # LumenFi
 
-LumenFi is a premium stablecoin DeFi workspace for Arc Testnet with four production-style product paths:
+LumenFi is an Arc Testnet stablecoin DeFi workspace with five reviewable product paths:
 
 - Wallet connect, Arc Testnet balances, and inline transaction feedback.
 - Stablecoin swaps through the deployed USDC/EURC LumenFi pool.
@@ -8,7 +8,7 @@ LumenFi is a premium stablecoin DeFi workspace for Arc Testnet with four product
 - USDC bridge preparation and unified balance hooks through Circle App Kit.
 - A Solidity lending pool for USDC/EURC collateral and borrowing.
 
-The current UI is built as an overview-first DeFi dashboard with professional dark-mode styling, public contract links, module-level receipts, and a live LumenFi Agent that grounds portfolio, risk, yield, swap, and bridge guidance in Arc state. The agent prepares bounded actions with prefilled values while wallet approval and signing remain user-controlled.
+The overview links to public contracts and the active market module keeps transaction status and explorer receipts in context. The LumenFi Agent reads Arc state and prepares bounded action drafts while wallet approval and signing remain user-controlled.
 
 ## Why Arc
 
@@ -19,7 +19,7 @@ The project highlights four Arc-relevant ideas:
 - Stablecoin-first UX for swaps, LP positions, and credit markets.
 - USDC-denominated onboarding and transaction context.
 - Testnet contracts that make Arc balances actionable from one interface.
-- A staged agent path: live onchain analysis and user-approved action drafts, then agent identity, USDC jobs, and tightly scoped automation.
+- A deterministic action planner with live onchain evidence and a separate path toward tightly scoped, user-approved automation.
 
 ## Judge Quick Review
 
@@ -51,11 +51,10 @@ cp .env.example .env
 Set local credentials only in `.env`:
 
 ```bash
-CIRCLE_KIT_KEY=your_circle_app_kit_key
 ARC_TESTNET_PRIVATE_KEY=0x...
 ```
 
-Do not put sensitive credentials in public files. Keep `VITE_CIRCLE_APP_KIT_KEY` empty for public builds unless you intentionally accept that the browser bundle will expose that key. The testnet deployment keeps service credentials out of the browser bundle.
+Do not put sensitive credentials in public files. `VITE_CIRCLE_APP_KIT_KEY` is optional and only enables App Kit swap routes that require a Kit Key; any Vite variable is exposed in the browser bundle. The public USDC/EURC pool does not require it.
 
 ## Run the web app
 
@@ -78,6 +77,7 @@ docs/project-submission.md
 docs/whitepaper.md
 docs/deployments.md
 docs/demo-script.md
+docs/arc-agent-roadmap.md
 ```
 
 Security notes:
@@ -117,7 +117,7 @@ LendingPool:
 0x474552ce815a68443bdfcafd089cdb345791d204
 
 PermissionlessStablePool:
-0xfd34e43021f20f585db8f078471c7107d8d1da30
+0x212622812664e37abbb99774ee7488bc721b38b3
 ```
 
 If PermissionlessStablePool reserves are empty after a fresh deployment, add both USDC and EURC liquidity before expecting pool swaps to quote.

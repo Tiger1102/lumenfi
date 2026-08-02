@@ -6,7 +6,7 @@ import "./IERC20.sol";
 contract PermissionlessStablePool {
     uint256 public constant BPS = 10_000;
     uint256 public constant FEE_BPS = 30;
-    uint8 public constant decimals = 18;
+    uint8 public constant decimals = 6;
 
     string public constant name = "LumenFi USDC/EURC LP";
     string public constant symbol = "LUMEN-LP";
@@ -16,11 +16,19 @@ contract PermissionlessStablePool {
 
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
+    uint256 private unlocked = 1;
 
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event LiquidityAdded(address indexed provider, uint256 usdcAmount, uint256 eurcAmount, uint256 shares);
     event LiquidityRemoved(address indexed provider, address indexed receiver, uint256 usdcAmount, uint256 eurcAmount, uint256 shares);
     event Swapped(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
+
+    modifier nonReentrant() {
+        require(unlocked == 1, "REENTRANCY");
+        unlocked = 2;
+        _;
+        unlocked = 1;
+    }
 
     constructor(address usdc_, address eurc_) {
         require(usdc_ != address(0) && eurc_ != address(0), "ZERO_TOKEN");
@@ -33,7 +41,7 @@ contract PermissionlessStablePool {
         eurcReserve = IERC20(eurc).balanceOf(address(this));
     }
 
-    function addLiquidity(uint256 usdcAmount, uint256 eurcAmount, uint256 minShares) external returns (uint256 shares) {
+    function addLiquidity(uint256 usdcAmount, uint256 eurcAmount, uint256 minShares) external nonReentrant returns (uint256 shares) {
         require(usdcAmount > 0 && eurcAmount > 0, "ZERO_AMOUNT");
         (uint256 usdcReserve, uint256 eurcReserve) = reserves();
 
@@ -54,7 +62,7 @@ contract PermissionlessStablePool {
         emit LiquidityAdded(msg.sender, usdcAmount, eurcAmount, shares);
     }
 
-    function removeLiquidity(uint256 shares, uint256 minUsdc, uint256 minEurc, address receiver) external returns (uint256 usdcAmount, uint256 eurcAmount) {
+    function removeLiquidity(uint256 shares, uint256 minUsdc, uint256 minEurc, address receiver) external nonReentrant returns (uint256 usdcAmount, uint256 eurcAmount) {
         require(receiver != address(0), "ZERO_RECEIVER");
         require(shares > 0, "ZERO_SHARES");
         require(balanceOf[msg.sender] >= shares, "INSUFFICIENT_LP");
@@ -96,8 +104,10 @@ contract PermissionlessStablePool {
         require(amountOut > 0 && reserveOut >= amountOut, "POOL_LIQUIDITY_LOW");
     }
 
-    function swap(address tokenIn, uint256 amountIn) external returns (address tokenOut, uint256 amountOut) {
+    function swap(address tokenIn, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external nonReentrant returns (address tokenOut, uint256 amountOut) {
+        require(block.timestamp <= deadline, "EXPIRED");
         (tokenOut, amountOut) = quote(tokenIn, amountIn);
+        require(amountOut >= minAmountOut, "SLIPPAGE");
 
         require(IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn), "TRANSFER_FROM_FAILED");
         require(IERC20(tokenOut).transfer(msg.sender, amountOut), "TRANSFER_FAILED");

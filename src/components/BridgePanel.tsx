@@ -1,6 +1,6 @@
 import { ArrowLeftRight, Cable, CheckCircle2, Layers3, Route } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Address } from "viem";
+import { isAddress, type Address } from "viem";
 import { estimateBridge, requestBridge, requestUnifiedBalances } from "../lib/circle";
 import { arcPublicClient, ARC_TOKENS, erc20Abi, formatTokenAmount, getTokenAddress, readWithRetry, type EIP1193Provider } from "../lib/arc";
 import type { AgentActionDraft } from "../lib/agent";
@@ -37,7 +37,19 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
   const [arcUsdcBalance, setArcUsdcBalance] = useState("0 USDC");
   const [routeEstimate, setRouteEstimate] = useState("Ready to preview");
   const [notice, setNotice] = useState<{ status: "loading" | "success" | "error"; message: string; txHash?: string }>();
+  const [busyAction, setBusyAction] = useState<"preview" | "bridge" | "balance">();
   const routeDisabled = sourceChain === destinationChain;
+
+  function validateRouteInput() {
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      throw new Error("Enter a USDC amount greater than zero.");
+    }
+    const destination = recipient || address;
+    if (!destination || !isAddress(destination)) {
+      throw new Error("Enter a valid destination wallet address.");
+    }
+    return destination;
+  }
 
   async function loadArcUsdcBalance() {
     if (!address) {
@@ -86,9 +98,11 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
     }
 
     try {
+      const destination = validateRouteInput();
+      setBusyAction("preview");
       setNotice({ status: "loading", message: "Checking Circle bridge route..." });
       setStatus("Checking Circle bridge route...", "loading");
-      const result = await estimateBridge({ provider, sourceChain, destinationChain, amount, recipientAddress: recipient || address });
+      const result = await estimateBridge({ provider, sourceChain, destinationChain, amount, recipientAddress: destination });
       setRouteEstimate(readableRouteEstimate(result));
       setNotice({ status: "success", message: "Bridge route is available." });
       setStatus("Bridge route is available.", "success");
@@ -97,6 +111,8 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
       setRouteEstimate("Route estimate unavailable");
       setNotice({ status: "error", message });
       setStatus(message, "error");
+    } finally {
+      setBusyAction(undefined);
     }
   }
 
@@ -114,17 +130,26 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
     }
 
     try {
+      const destination = validateRouteInput();
+      setBusyAction("bridge");
       setNotice({ status: "loading", message: "Bridge request pending in wallet..." });
       setStatus("Checking USDC bridge route...", "loading");
-      const result = await requestBridge({ provider, sourceChain, destinationChain, amount, recipientAddress: recipient || address });
+      const result = await requestBridge({ provider, sourceChain, destinationChain, amount, recipientAddress: destination });
+      if (bridgeResultState(result) === "error") {
+        throw new Error("Circle reported that the bridge route did not complete. Review the route and try again.");
+      }
       const txHash = extractTransactionHash(result);
-      setNotice({ status: "success", message: txHash ? "Bridge transaction submitted." : "Bridge request submitted.", txHash });
-      setStatus(txHash ? "Bridge transaction submitted." : "Bridge request submitted.", "success", txHash);
+      const pending = bridgeResultState(result) === "pending";
+      const message = pending ? "Bridge submitted and awaiting cross-chain completion." : "Bridge completed.";
+      setNotice({ status: "success", message, txHash });
+      setStatus(message, "success", txHash);
       await loadArcUsdcBalance();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bridge routing is not available in this deployment.";
       setNotice({ status: "error", message });
       setStatus(message, "error");
+    } finally {
+      setBusyAction(undefined);
     }
   }
 
@@ -136,9 +161,10 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
     }
 
     try {
+      setBusyAction("balance");
       setNotice({ status: "loading", message: "Loading unified USDC balance..." });
       setStatus("Loading unified USDC balance...", "loading");
-      const result = await requestUnifiedBalances(provider, address);
+      const result = await requestUnifiedBalances(provider);
       setUnifiedBalance(formatUnifiedUsdcBalance(result));
       setNotice({ status: "success", message: "Unified balance loaded." });
       setStatus("Unified balance loaded.", "success");
@@ -146,6 +172,8 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
       const message = error instanceof Error ? error.message : "Unified balance is not available in this deployment.";
       setNotice({ status: "error", message });
       setStatus(message, "error");
+    } finally {
+      setBusyAction(undefined);
     }
   }
 
@@ -210,17 +238,17 @@ export function BridgePanel({ address, provider, agentDraft, onDismissAgentDraft
       </div>
 
       <div className="buttonRow bridgeButtonRow">
-        <button className="secondaryButton" type="button" onClick={previewRoute} disabled={routeDisabled}>
-          Preview route
+        <button className="secondaryButton" type="button" onClick={previewRoute} disabled={routeDisabled || Boolean(busyAction) || !address}>
+          {!address ? "Connect wallet first" : busyAction === "preview" ? "Checking route..." : "Preview route"}
         </button>
-        <button className="primaryButton" type="button" onClick={bridge} disabled={routeDisabled}>
-          Bridge USDC
+        <button className="primaryButton" type="button" onClick={bridge} disabled={routeDisabled || Boolean(busyAction) || !address}>
+          {busyAction === "bridge" ? "Submitting bridge..." : "Bridge USDC"}
         </button>
       </div>
 
-      <button className="secondaryButton fullWidthButton" type="button" onClick={loadUnifiedBalance}>
+      <button className="secondaryButton fullWidthButton" type="button" onClick={loadUnifiedBalance} disabled={Boolean(busyAction) || !address}>
         <Layers3 size={16} />
-        Unified balance
+        {busyAction === "balance" ? "Loading balance..." : "Unified balance"}
       </button>
 
       <div className="resultBox compactBalance" aria-label="Unified USDC balance">
@@ -237,14 +265,20 @@ function readableRouteEstimate(result: unknown) {
   }
 
   const record = result as Record<string, unknown>;
-  const fee = record.fee ?? record.totalFee ?? record.bridgeFee;
-  const eta = record.estimatedTime ?? record.eta ?? record.duration;
+  const amount = typeof record.amount === "string" ? `${record.amount} USDC` : "USDC route";
+  const fees = Array.isArray(record.fees)
+    ? record.fees
+        .map((item) => item && typeof item === "object" ? Number((item as Record<string, unknown>).amount) : 0)
+        .filter((value) => Number.isFinite(value))
+        .reduce((total, value) => total + value, 0)
+    : 0;
+  return fees > 0 ? `${amount} · ${fees.toFixed(4)} USDC protocol fee` : `${amount} · route available`;
+}
 
-  if (fee || eta) {
-    return [fee ? `Fee ${String(fee)}` : "", eta ? `ETA ${String(eta)}` : ""].filter(Boolean).join(" - ");
-  }
-
-  return "Route available";
+function bridgeResultState(result: unknown) {
+  if (!result || typeof result !== "object") return undefined;
+  const state = (result as Record<string, unknown>).state;
+  return state === "pending" || state === "success" || state === "error" ? state : undefined;
 }
 
 function extractTransactionHash(value: unknown): string | undefined {

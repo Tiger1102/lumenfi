@@ -1,86 +1,63 @@
-# LumenFi Arc Project Submission
+# LumenFi project submission
 
-## Project Name
+## Project
 
-LumenFi
+LumenFi is an Arc Testnet workspace for USDC/EURC swaps, permissionless liquidity, collateralized lending, cross-chain USDC preparation, and onchain account guidance.
 
-## Project Overview
+Live application: https://lumenfi.click
 
-LumenFi is a stablecoin-native DeFi dashboard on Arc Testnet for USDC/EURC balances, swaps, lending, borrowing, and cross-chain onboarding workflows.
+Source code: https://github.com/Tiger1102/lumenfi
 
-## Product Summary
+## What is live
 
-LumenFi is built for Arc's stablecoin-native environment. The application gives users one clean web interface to connect a wallet, view Arc balances, swap USDC/EURC through a deployed stable swap pool, interact with a testnet lending market, and review cross-chain onboarding controls.
+- Injected-wallet connection and Arc Testnet switching.
+- USDC and EURC wallet balances.
+- Deployed USDC/EURC liquidity pool with swaps, LP shares, and withdrawals.
+- Deployed lending contract with deposit, withdraw, borrow, repay, and account-health reads.
+- Preflight gas estimation and USDC fee checks before contract writes.
+- Explorer-linked transaction receipts.
+- A deterministic action agent grounded in current Arc contract reads.
 
-The product demonstrates how stablecoin applications can become more intuitive when gas, balances, collateral, and protocol accounting are all aligned around familiar stablecoin units.
-
-## Live App
-
-https://lumenfi.click
-
-## Contract Addresses
-
-LendingPool: 0x474552ce815a68443bdfcafd089cdb345791d204
-
-PermissionlessStablePool: 0xfd34e43021f20f585db8f078471c7107d8d1da30
-
-## Tech Stack
-
-React, Vite, TypeScript, viem, Solidity, Hardhat, Circle App Kit, Cloudflare Pages, Cloudflare Worker, and Arc Testnet.
-
-## Arc and Circle Features
-
-LumenFi uses Arc Testnet, Arc RPC, USDC gas model, ERC-20 USDC, EURC, deployed Solidity contracts, Circle App Kit integration points, and bridge/unified-balance workflow surfaces.
+The connected wallet is the only signer. The agent prepares bounded drafts and never holds keys or sends transactions independently.
 
 ## Why Arc
 
-Arc is a strong fit for LumenFi because the product is centered on stablecoin-native user journeys: balances, gas context, swaps, credit, and onboarding all make more sense when the chain is optimized for programmable money. LumenFi uses Arc Testnet to demonstrate how a user can move from wallet connection to market actions without leaving a stablecoin-first workspace.
+Arc aligns the gas asset, market assets, and protocol accounting around stablecoins. LumenFi uses this model to express network fees, collateral, liquidity, and account state in familiar units without introducing a separate volatile gas token.
 
-The app now includes a user-controlled Arc financial agent. It analyzes public wallet balances, lending position health, pool reserves, yield context, swap preparation, and bridge readiness, then prepares bounded repay, supply, swap, or bridge actions with prefilled values. The market module revalidates live state and the connected wallet remains the only signer. Later phases add onchain identity, USDC jobs, and tightly scoped automation.
+## Technical implementation
 
-## Current Status
+- React, TypeScript, Vite, and native CSS.
+- viem for Arc reads, simulations, fee preparation, and wallet transactions.
+- Solidity and Hardhat for the lending and liquidity contracts.
+- Circle App Kit integration for bridge and Unified Balance workflows.
+- Cloudflare Pages for the public frontend.
 
-The testnet deployment is live. Wallet connect, Arc balance reads, USDC/EURC pool swaps, lending pool actions, documentation, and deployed contract references are available.
+LendingPool: `0x474552ce815a68443bdfcafd089cdb345791d204`
 
-Latest contract check confirms deployed bytecode for both contracts, listed USDC/EURC lending assets, active USDC/EURC pool reserves, and a working 1 USDC swap quote.
+PermissionlessStablePool: `0x212622812664e37abbb99774ee7488bc721b38b3`
 
-Circle App Kit routes are represented in the product surface, but public builds keep service credentials out of the browser bundle. When routes are unavailable, the app fails gracefully and keeps the USDC/EURC pool workflow usable.
+## Agent boundary
 
-## Feedback Requested
+The current agent is an onchain action planner, not an autonomous custodian. It reads balances, lending risk, pool reserves, prices, and block evidence, then prepares a supply, repay, swap, or bridge draft. The destination module refreshes state and the wallet must approve every token allowance and transaction.
 
-LumenFi is seeking feedback on stablecoin-native product direction, Arc-specific UX patterns, lending and swap workflow clarity, bridge onboarding, risk controls, and what would be required before a production-grade release.
+No external language model is used in this release. This keeps recommendations reproducible for judging and makes the trust boundary explicit.
 
-## Roadmap
+## Bridge status
 
-Live: professional MVP, permissionless USDC/EURC LP pool, lending market risk controls, market depth analytics, module-level transaction feedback, testnet bridge workflow surface, and the LumenFi action-planning agent.
-
-Next: register the LumenFi Agent identity through ERC-8004 and surface its owner, metadata, reputation, and validation records.
-
-Planned: ERC-8183 jobs with USDC escrow, deliverable hashes, evaluator approval, settlement, and later limited-permission execution with explicit user confirmation.
-
-Research: smart-wallet and session-key execution with strict action allowlists, value limits, expiry, revocation, simulation, and explicit user confirmation.
-
-## Demo Script
-
-1. Open the web app.
-2. Connect MetaMask or another injected wallet on Arc Testnet.
-3. Review USDC and EURC wallet balances.
-4. Swap USDC to EURC through the LumenFi stable swap pool.
-5. Deposit USDC or EURC into the lending pool.
-6. Review collateral, debt, available borrow, and health.
-7. Open the whitepaper or submission pack from the docs controls.
+The bridge page uses Circle App Kit interfaces for route estimates, execution, and Unified Balance reads. Availability depends on the connected wallet and supported testnet route. The app shows explicit errors when a route or service is unavailable.
 
 ## Validation
 
-- `npm run build` passes.
-- `npm run compile` passes.
-- `npm test` passes with contract tests for pool and lending flows.
-- `node scripts/check-contracts.mjs` confirms deployed bytecode, token metadata, pool reserves, a working swap quote, and listed lending assets.
+- Production build passes.
+- Solidity compilation passes.
+- Contract tests cover liquidity, swaps, slippage, expiry, lending LTV, repayment, and healthy withdrawals.
+- Live checks confirm deployed bytecode, asset metadata, pool reserves, swap quotes, lending configuration, and Arc gas preparation.
+- Responsive smoke tests cover desktop, mobile, landscape, and reduced-motion layouts.
 
-## Disclaimer
+## Review focus
 
-LumenFi is an Arc Testnet review build. It is not a production lending product and should not be treated as financial advice.
+Feedback is most useful on Arc-specific fee UX, the clarity of wallet-controlled agent drafts, lending risk communication, cross-chain recovery states, and the controls required before a production deployment.
 
+## Release boundary
 
-
-
+LumenFi is an unaudited testnet build. It is not a production lending product and is not financial advice.

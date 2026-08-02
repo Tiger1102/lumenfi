@@ -101,7 +101,7 @@ export async function requestBridge(input: BridgeInput) {
   });
 }
 
-export async function requestUnifiedBalances(provider: EIP1193Provider, owner: string) {
+export async function requestUnifiedBalances(provider: EIP1193Provider) {
   const { kit, adapter } = await createCircleAppKit(provider);
 
   if (!kit.unifiedBalance?.getBalances) {

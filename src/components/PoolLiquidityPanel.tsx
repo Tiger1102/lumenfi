@@ -323,7 +323,7 @@ export function PoolLiquidityPanel({ address, walletClient, onConnect, setStatus
         </button>
       </div>
 
-      <p className="hint">LP shares track your pool ownership. Fees accrue inside reserves.</p>
+      <p className="hint">LP shares track pool ownership. Add and remove actions enforce 0.5% minimum-output protection.</p>
     </section>
   );
 }

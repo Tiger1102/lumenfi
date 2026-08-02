@@ -2,11 +2,11 @@
 
 ## One-liner
 
-LumenFi is a clean, all-in-one DeFi market interface on Arc Testnet for stablecoin swaps, liquidity, lending, portfolio balances, and USDC bridge preparation.
+LumenFi is an Arc Testnet market workspace for stablecoin swaps, liquidity, lending, wallet balances, and USDC bridge preparation.
 
 ## What I am most excited to build on Arc
 
-I am building LumenFi, an Arc-native DeFi workspace focused on stablecoin markets. It combines swaps, liquidity pools, lending and borrowing, portfolio balances, and USDC bridge preparation into one clean interface for Arc Testnet users. I am especially excited to explore how Arc can support faster stablecoin UX, better DeFi onboarding, and eventually AI-assisted portfolio guidance.
+I am building LumenFi, an Arc-native DeFi workspace focused on stablecoin markets. It combines swaps, liquidity pools, lending and borrowing, portfolio balances, and USDC bridge preparation in one Arc Testnet interface. I am especially interested in Arc's stablecoin gas model and wallet-controlled account guidance grounded in onchain state.
 
 ## Project I am most proud of
 
@@ -18,7 +18,7 @@ Live app: https://lumenfi.click
 
 Arc Testnet LendingPool: https://testnet.arcscan.app/address/0x474552ce815a68443bdfcafd089cdb345791d204
 
-Arc Testnet PermissionlessStablePool: https://testnet.arcscan.app/address/0xfd34e43021f20f585db8f078471c7107d8d1da30
+Arc Testnet PermissionlessStablePool: https://testnet.arcscan.app/address/0x212622812664e37abbb99774ee7488bc721b38b3
 
 ## Team
 
