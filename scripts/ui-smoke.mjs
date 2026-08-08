@@ -196,7 +196,7 @@ try {
         window.ethereum = {
           request: async ({ method }) => {
             if (method === "eth_requestAccounts" || method === "eth_accounts") return [address];
-            if (method === "eth_chainId") return "0x4cf4b2";
+            if (method === "eth_chainId") return "0x4cef52";
             if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") return null;
             throw new Error("Mock wallet does not implement " + method);
           },
